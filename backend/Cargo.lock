@@ -66,8 +66,6 @@ checksum = "f1fdabc7756949593fe60f30ec81974b613357de856987752631dea1e3394c80"
 name = "backend"
 version = "0.1.0"
 dependencies = [
- "bson",
- "chrono",
  "futures-channel",
  "futures-util",
  "mongodb",
@@ -76,7 +74,6 @@ dependencies = [
  "tokio",
  "tokio-tungstenite",
  "toml",
- "uuid",
 ]
 
 [[package]]
@@ -148,7 +145,6 @@ dependencies = [
  "ahash",
  "base64 0.13.1",
  "bitvec",
- "chrono",
  "hex",
  "indexmap",
  "js-sys",
@@ -199,10 +195,7 @@ checksum = "a21f936df1771bf62b77f047b726c4625ff2e8aa607c01ec06e5a05bd8463401"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
- "js-sys",
  "num-traits",
- "serde",
- "wasm-bindgen",
  "windows-targets 0.52.5",
 ]
 
