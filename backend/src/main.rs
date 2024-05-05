@@ -3,7 +3,7 @@ use std::{
 };
 
 use mongodb::{
-    bson::{doc, oid::ObjectId, Document}, options::FindOneOptions, Client, Collection, Database 
+    bson::{doc, oid::ObjectId, Document}, options::{FindOneOptions, AggregateOptions}, Client, Collection, Database,
 };
 
 mod utils;
@@ -68,7 +68,34 @@ async fn handle_connection(peer_map: PeerMap, db: Arc<Database>, raw_stream: Tcp
                 let req: GetLumpPropReq = serde_json::from_slice(body).unwrap();
                 let lumps: Collection<Lump> = db.collection("lumps");
 
+                let pipeline: Vec<bson::Document> = vec![
+                    doc! {
+                        "$graphLookup": {
+                            "from": "collection", // 結合対象のコレクション名
+                            "startWith": "$parent_id", // 親子関係を示すフィールド
+                            "connectFromField": "parent_id", // 親コレクションのフィールド
+                            "connectToField": "_id", // 子コレクションのフィールド
+                            "as": "children" // 結果を格納するフィールド名
+                        }
+                    },
+                    doc! {
+                        "$graphLookup": {
+                            "from": "users",
+                            "startWith": "$user_id",
+                            "connectFromField": "user_id",
+                            "connectToField": "_id",
+                            "as": "user"
+                        }
+                    }
+                ];
+
+                // Aggregation Pipelineを実行
+                let options = AggregateOptions::builder().allow_disk_use(true).build();
+                let cursor = lumps.aggregate(pipeline, options).await.unwrap();
+
+
                 // let options = FindOneOptions::default();
+                /*
                 let cursor = lumps.find_one(doc! {"_id": req.lump_id}, None).await;
                 let Some(lump) = cursor.unwrap() else { return };
                 
@@ -97,6 +124,7 @@ async fn handle_connection(peer_map: PeerMap, db: Arc<Database>, raw_stream: Tcp
                     let Some(file) = fil_cursor.unwrap() else { return };
                     let file_name = file.name; 
                 }
+                */
 
                 
 

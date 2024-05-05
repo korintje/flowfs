@@ -17,8 +17,8 @@ pub struct Device {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct User {
-    #[serde(rename = "_id")]
-    pub id:             ObjectId,
+    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
+    pub id:             Option<ObjectId>,
     pub name:           String,
     pub passhash:       String,
     pub created_at:     DateTime<Local>,
@@ -44,7 +44,8 @@ pub struct Directory {
     pub id:             Option<ObjectId>,
     pub user_id:        ObjectId,
     pub name:           String,
-    pub content_ids:    Vec<ObjectId>,
+    pub dir_ids:        Vec<ObjectId>,
+    pub file_ids:       Vec<ObjectId>,
     pub created_at:     DateTime<Local>,    
 }
 
@@ -55,5 +56,4 @@ pub struct File {
     pub user_id:        ObjectId,
     pub name:           String,
     pub created_at:     DateTime<Local>,
-
 }
