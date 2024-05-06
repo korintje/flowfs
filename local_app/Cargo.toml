@@ -6,8 +6,12 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tokio = { version = "1.37", features = ["macros", "rt-multi-thread", "io-std"]}
+tokio = { version = "1.3", features = ["full"]}
 tokio-tungstenite = "0.21"
-futures-util = "*"
-futures-channel = "*"
+futures-util = "0.3"
+futures-channel = "0.3"
+serde = { version = "1.0", features = ["serde_derive"]}
+serde_json = "1.0"
+mongodb = { version = "2.8", features = ["tokio-runtime"]}
+toml = "0.8"
 url = "*"

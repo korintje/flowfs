@@ -21,7 +21,7 @@ fn read_file(path: String) -> Result<String, String> {
 }
 
 fn get_config() -> Config {
-  let path = "./reservoir.toml";
+  let path = "./flowfs.toml";
   let s = match read_file(path.to_owned()) {
     Ok(s) => s,
     Err(e) => panic!("fail to read file: {}", e),

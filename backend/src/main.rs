@@ -40,7 +40,7 @@ async fn handle_connection(peer_map: PeerMap, db: Arc<Database>, raw_stream: Tcp
         let cmd = cmd_binary[0] as u64;
         let mut response: String = "".to_string();
         match cmd {
-            0 =>  {
+            2 =>  {
                 let req: CreateLumpReq = serde_json::from_slice(body).unwrap();
                 let lumps = db.collection("lumps");
                 let lump_id = lumps.insert_one(req, None).await.unwrap().inserted_id;
@@ -48,7 +48,39 @@ async fn handle_connection(peer_map: PeerMap, db: Arc<Database>, raw_stream: Tcp
                 println!("Lump created with ID: {}", &lump_id);
                 response = serde_json::to_string(&CreateLumpRes{lump_id}).unwrap();
             }
-            1 => {
+            3 => {
+                let req: CreateDirReq = serde_json::from_slice(body).unwrap();
+                let dirs = db.collection("dirs");
+                let parent_id_wrap = req.parent_id;
+                let dir_id = dirs.insert_one(req, None).await.unwrap().inserted_id;
+                let dir_id = dir_id.as_object_id().unwrap();
+                println!("Dir created with ID: {}", &dir_id);
+                if let Some(parent_id) = parent_id_wrap {
+                    dirs.update_one(
+                        doc! { "_id": parent_id },
+                        doc! { "$push": {"dirs": dir_id} },
+                        None,
+                    ).await.unwrap();
+                }
+                response = serde_json::to_string(&CreateDirRes{dir_id}).unwrap();
+            }
+            4 => {
+                let req: CreateFilePropReq = serde_json::from_slice(body).unwrap();
+                let file_props = db.collection("file_props");
+                let parent_id_wrap = req.parent_id;
+                let file_prop_id = file_props.insert_one(req, None).await.unwrap().inserted_id;
+                let file_prop_id = file_prop_id.as_object_id().unwrap();
+                println!("FileProp created with ID: {}", &file_prop_id);
+                if let Some(parent_id) = parent_id_wrap {
+                    file_props.update_one(
+                        doc! { "_id": parent_id },
+                        doc! { "$push": {"files": file_prop_id} },
+                        None,
+                    ).await.unwrap();
+                }
+                response = serde_json::to_string(&CreateFilePropRes{file_prop_id}).unwrap();
+            }
+            5 => {
                 let req: UploadFileReq = serde_json::from_slice(body).unwrap();
                 let bucket = db.gridfs_bucket(None);
                 let blob = req.blob;
@@ -60,7 +92,7 @@ async fn handle_connection(peer_map: PeerMap, db: Arc<Database>, raw_stream: Tcp
                 println!("File uploaded with ID: {}", &uploaded_id);
                 response = serde_json::to_string(&UploadFileRes{uploaded_id}).unwrap();
             }
-            2 => {
+            6 => {
                 let req: UpdateLumpReq = serde_json::from_slice(body).unwrap();
                 let lumps: Collection<Lump> = db.collection("lumps");
                 let mut update_doc = doc! {};
@@ -93,7 +125,7 @@ async fn handle_connection(peer_map: PeerMap, db: Arc<Database>, raw_stream: Tcp
                     Some(options),
                 ).await.unwrap();
             }
-            3 => {
+            7 => {
                 let req: GetLumpPropReq = serde_json::from_slice(body).unwrap();
                 let lumps: Collection<Lump> = db.collection("lumps");
 

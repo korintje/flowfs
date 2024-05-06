@@ -16,6 +16,9 @@ use futures_util::{future, pin_mut, StreamExt};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 
+mod model;
+use model::*;
+
 #[tokio::main]
 async fn main() {
     let connect_addr =
@@ -46,13 +49,34 @@ async fn main() {
 // Our helper method which will read data from stdin and send it along the
 // sender provided.
 async fn read_stdin(tx: futures_channel::mpsc::UnboundedSender<Message>) {
+
+    let user_name = "Furoh";
+    let create_user_req = CreateUserReq {
+        name: user_name.to_string(),
+        passhash: "1233456789abc".to_string(),
+    };
+    let create_usr_req_str = serde_json::to_string(&create_user_req).unwrap();
+    let header: u8 = 0;
+    let mut u8_vec: Vec<u8> = vec![header];
+    u8_vec.extend(create_usr_req_str.as_bytes());
+    tx.unbounded_send(u8_vec.into()).unwrap();
+    
     let mut stdin = tokio::io::stdin();
+
     loop {
         let mut buf = vec![0; 1024];
-        let n = match stdin.read(&mut buf).await {
-            Err(_) | Ok(0) => break,
-            Ok(n) => n,
-        };
+        
+        let Ok(n) = stdin.read(&mut buf).await else { return };
+        match buf[0] {
+            0 => {
+
+            }
+            _ => {
+
+            }
+        }
+
+
         buf.truncate(n);
         tx.unbounded_send(Message::binary(buf)).unwrap();
     }
