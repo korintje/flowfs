@@ -13,8 +13,10 @@
 use std::env;
 
 use futures_util::{future, pin_mut, StreamExt};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, AsyncBufReadExt, BufReader};
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
+use tokio::sync::mpsc;
+use mac_address::get_mac_address;
 
 mod model;
 use model::*;
@@ -50,6 +52,7 @@ async fn main() {
 // sender provided.
 async fn read_stdin(tx: futures_channel::mpsc::UnboundedSender<Message>) {
 
+    /*
     let user_name = "Furoh";
     let create_user_req = CreateUserReq {
         name: user_name.to_string(),
@@ -60,24 +63,39 @@ async fn read_stdin(tx: futures_channel::mpsc::UnboundedSender<Message>) {
     let mut u8_vec: Vec<u8> = vec![header];
     u8_vec.extend(create_usr_req_str.as_bytes());
     tx.unbounded_send(u8_vec.into()).unwrap();
+    */
+    println!("HERE");
     
-    let mut stdin = tokio::io::stdin();
+    let stdin = BufReader::new(tokio::io::stdin());
 
-    loop {
-        let mut buf = vec![0; 1024];
-        
-        let Ok(n) = stdin.read(&mut buf).await else { return };
-        match buf[0] {
-            0 => {
+    let mut lines = stdin.lines();
 
+    while let Some(line) = lines.next_line().await.unwrap() {
+        let line = line.trim();
+
+        match line {
+            "0" => {
+                println!("Command 0");
+                let device_name = std::env::var("HOSTNAME").unwrap_or("Unknown".to_string());
+                let mac_address = get_mac_address().unwrap();
+                let _id: [u8; 6] = mac_address.unwrap().bytes();
+                let new_device = Device { _id, name: device_name };
+                let req_str = serde_json::to_string(&new_device).unwrap();
+                tx.unbounded_send(req_str.into()).unwrap();
+            }
+            "1" => {
+                println!("Command 1");
+                let user_name = "Mukia Tomei".to_string();
+                let passhash = "1234abcd".to_string();
+                let _id = mongodb::bson::oid::ObjectId::new();
+                let new_user = User { _id, name: user_name, passhash, device_ids: vec![] };
+                let req_str = serde_json::to_string(&new_user).unwrap();
+                tx.unbounded_send(req_str.into()).unwrap();
             }
             _ => {
-
+                println!("Command n");
             }
         }
-
-
-        buf.truncate(n);
-        tx.unbounded_send(Message::binary(buf)).unwrap();
     }
+    
 }

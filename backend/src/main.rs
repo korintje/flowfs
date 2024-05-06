@@ -41,7 +41,7 @@ async fn handle_connection(peer_map: PeerMap, db: Arc<Database>, raw_stream: Tcp
         let mut response: String = "".to_string();
         match cmd {
             2 =>  {
-                let req: CreateLumpReq = serde_json::from_slice(body).unwrap();
+                let req: Lump = serde_json::from_slice(body).unwrap();
                 let lumps = db.collection("lumps");
                 let lump_id = lumps.insert_one(req, None).await.unwrap().inserted_id;
                 let lump_id = lump_id.as_object_id().unwrap();
@@ -49,7 +49,7 @@ async fn handle_connection(peer_map: PeerMap, db: Arc<Database>, raw_stream: Tcp
                 response = serde_json::to_string(&CreateLumpRes{lump_id}).unwrap();
             }
             3 => {
-                let req: CreateDirReq = serde_json::from_slice(body).unwrap();
+                let req: Directory = serde_json::from_slice(body).unwrap();
                 let dirs = db.collection("dirs");
                 let parent_id_wrap = req.parent_id;
                 let dir_id = dirs.insert_one(req, None).await.unwrap().inserted_id;
@@ -65,7 +65,7 @@ async fn handle_connection(peer_map: PeerMap, db: Arc<Database>, raw_stream: Tcp
                 response = serde_json::to_string(&CreateDirRes{dir_id}).unwrap();
             }
             4 => {
-                let req: CreateFilePropReq = serde_json::from_slice(body).unwrap();
+                let req: FileProp = serde_json::from_slice(body).unwrap();
                 let file_props = db.collection("file_props");
                 let parent_id_wrap = req.parent_id;
                 let file_prop_id = file_props.insert_one(req, None).await.unwrap().inserted_id;
@@ -81,7 +81,7 @@ async fn handle_connection(peer_map: PeerMap, db: Arc<Database>, raw_stream: Tcp
                 response = serde_json::to_string(&CreateFilePropRes{file_prop_id}).unwrap();
             }
             5 => {
-                let req: UploadFileReq = serde_json::from_slice(body).unwrap();
+                let req: FileBlob = serde_json::from_slice(body).unwrap();
                 let bucket = db.gridfs_bucket(None);
                 let blob = req.blob;
                 let mut upload_stream = bucket.open_upload_stream(req.file_name, None);
@@ -120,7 +120,7 @@ async fn handle_connection(peer_map: PeerMap, db: Arc<Database>, raw_stream: Tcp
                 // idで指定されたドキュメントを更新します
                 let options = UpdateOptions::builder().upsert(false).build();
                 lumps.update_one(
-                    doc! { "_id": req.id },
+                    doc! { "_id": req._id },
                     doc! { "$set": update_doc },
                     Some(options),
                 ).await.unwrap();
