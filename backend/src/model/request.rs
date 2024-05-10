@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use mongodb::bson::oid::ObjectId;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct UpdateLumpReq {
+pub struct UpdateCellReq {
     pub _id:            ObjectId,
     pub user_id:        Option<ObjectId>,
     pub device_id:      Option<ObjectId>,
@@ -15,6 +15,6 @@ pub struct UpdateLumpReq {
 
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct GetLumpPropReq {
-    pub lump_id:        ObjectId,
+pub struct GetCellPropReq {
+    pub cell_id:        ObjectId,
 }

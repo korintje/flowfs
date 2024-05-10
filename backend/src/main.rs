@@ -41,12 +41,12 @@ async fn handle_connection(peer_map: PeerMap, db: Arc<Database>, raw_stream: Tcp
         let mut response: String = "".to_string();
         match cmd {
             2 =>  {
-                let req: Lump = serde_json::from_slice(body).unwrap();
-                let lumps = db.collection("lumps");
-                let lump_id = lumps.insert_one(req, None).await.unwrap().inserted_id;
-                let lump_id = lump_id.as_object_id().unwrap();
-                println!("Lump created with ID: {}", &lump_id);
-                response = serde_json::to_string(&CreateLumpRes{lump_id}).unwrap();
+                let req: Cell = serde_json::from_slice(body).unwrap();
+                let cells = db.collection("cells");
+                let cell_id = cells.insert_one(req, None).await.unwrap().inserted_id;
+                let cell_id = cell_id.as_object_id().unwrap();
+                println!("Cell created with ID: {}", &cell_id);
+                response = serde_json::to_string(&CreateCellRes{cell_id}).unwrap();
             }
             3 => {
                 let req: Directory = serde_json::from_slice(body).unwrap();
@@ -93,8 +93,8 @@ async fn handle_connection(peer_map: PeerMap, db: Arc<Database>, raw_stream: Tcp
                 response = serde_json::to_string(&UploadFileRes{uploaded_id}).unwrap();
             }
             6 => {
-                let req: UpdateLumpReq = serde_json::from_slice(body).unwrap();
-                let lumps: Collection<Lump> = db.collection("lumps");
+                let req: UpdateCellReq = serde_json::from_slice(body).unwrap();
+                let cells: Collection<Cell> = db.collection("cells");
                 let mut update_doc = doc! {};
                 if let Some(user_id) = req.user_id {
                     update_doc.insert("user_id", user_id);
@@ -119,20 +119,20 @@ async fn handle_connection(peer_map: PeerMap, db: Arc<Database>, raw_stream: Tcp
                 }
                 // idで指定されたドキュメントを更新します
                 let options = UpdateOptions::builder().upsert(false).build();
-                lumps.update_one(
+                cells.update_one(
                     doc! { "_id": req._id },
                     doc! { "$set": update_doc },
                     Some(options),
                 ).await.unwrap();
             }
             7 => {
-                let req: GetLumpPropReq = serde_json::from_slice(body).unwrap();
-                let lumps: Collection<Lump> = db.collection("lumps");
+                let req: GetCellPropReq = serde_json::from_slice(body).unwrap();
+                let cells: Collection<Cell> = db.collection("cells");
 
                 let pipeline: Vec<mongodb::bson::Document> = vec![
                     doc! {
                         "$match": {
-                            "_id": req.lump_id,
+                            "_id": req.cell_id,
                         }
                     },
                     doc! {
@@ -172,7 +172,7 @@ async fn handle_connection(peer_map: PeerMap, db: Arc<Database>, raw_stream: Tcp
 
                 // 集計オプションを設定する
                 let options = AggregateOptions::builder().build();
-                let mut cursor = lumps.aggregate(pipeline, options).await.unwrap();
+                let mut cursor = cells.aggregate(pipeline, options).await.unwrap();
 
                 // 結果を処理する
                 while let Some(result) = cursor.next().await {

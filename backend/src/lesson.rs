@@ -22,7 +22,7 @@ pub struct User {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Lump {
+pub struct Cell {
     #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
     pub id:             Option<ObjectId>,
     pub user_id:        ObjectId,
@@ -146,7 +146,7 @@ async fn main() {
     let f_id_2 = db.collection("fileprops").insert_one(fileprop2, None).await.unwrap().inserted_id;
 
     // For test 2
-    let req_json = Lump {
+    let req_json = Cell {
         id: None,
         user_id:        u_id.as_object_id().unwrap(),
         device_id:      d_id.as_object_id().unwrap(),
@@ -158,10 +158,10 @@ async fn main() {
     };
 
     // Get test 2
-    let l_id = db.collection("lumps").insert_one(req_json, None).await.unwrap().inserted_id;
+    let l_id = db.collection("cells").insert_one(req_json, None).await.unwrap().inserted_id;
 
     // Get test
-    let lumps = db.collection::<Lump>("lumps");
+    let cells = db.collection::<Cell>("cells");
 
     let pipeline: Vec<mongodb::bson::Document> = vec![
         doc! {
@@ -207,8 +207,8 @@ async fn main() {
     // 集計オプションを設定する
     let options = AggregateOptions::builder().build();
 
-    // lumpsコレクションで集計パイプラインを実行する
-    let mut cursor = lumps.aggregate(pipeline, options).await.unwrap();
+    // cellsコレクションで集計パイプラインを実行する
+    let mut cursor = cells.aggregate(pipeline, options).await.unwrap();
 
     // 結果を処理する
     while let Some(result) = cursor.next().await {

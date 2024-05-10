@@ -12,8 +12,8 @@ pub struct CreateDeviceRes {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct CreateLumpRes {
-    pub lump_id: ObjectId,
+pub struct CreateCellRes {
+    pub cell_id: ObjectId,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

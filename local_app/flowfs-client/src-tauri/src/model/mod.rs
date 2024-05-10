@@ -23,7 +23,7 @@ pub struct User {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Lump {
+pub struct Cell {
     pub _id:            ObjectId,
     pub user_id:        ObjectId,
     pub device_id:      ObjectId,

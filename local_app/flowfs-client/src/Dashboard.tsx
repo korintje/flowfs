@@ -17,7 +17,12 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import { mainListItems, secondaryListItems } from './listItems';
 
+import { invoke } from '@tauri-apps/api/tauri';
 import MessageGrid from './MessageGrid';
+import { SlackMessageProps } from './SlackMessage';
+
+// const invoke = window.__TAURI__.invoke;
+// invoke('my_custom_command');
 
 const drawerWidth: number = 240;
 
@@ -74,6 +79,14 @@ const defaultTheme = createTheme();
 
 export default function Dashboard() {
 
+  /*
+  const [cells, setCells] = React.useState<SlackMessageProps[]>();
+  invoke('load_cells').then((cs) => setCells(cs));
+  */
+
+  const [open, setOpen] = React.useState(true);
+  const toggleDrawer = () => { setOpen(!open); };
+
   const slack_messages = [
     {
       userAvatar: '',
@@ -121,11 +134,6 @@ export default function Dashboard() {
       },
     },
   ];
-
-  const [open, setOpen] = React.useState(true);
-  const toggleDrawer = () => {
-    setOpen(!open);
-  };
 
   return (
     <ThemeProvider theme={defaultTheme}>
