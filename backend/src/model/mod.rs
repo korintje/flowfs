@@ -29,6 +29,11 @@ pub struct User {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct UsersRes {
+    pub users: Vec<User>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Cell {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub _id:            Option<ObjectId>,
@@ -46,7 +51,7 @@ pub struct CellRes {
     pub _id:            ObjectId,
     pub user:           User,
     pub device:         Device,
-    pub dirs:           Vec<DirectoryRes>,
+    pub dirs:           Vec<DirRes>,
     pub fileprops:      Vec<FilePropRes>,
     pub ancestor_ids:   Vec<ObjectId>,
     pub text:           String,
@@ -59,7 +64,7 @@ pub struct CellsRes {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Directory {
+pub struct Dir {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub _id:            Option<ObjectId>,
     pub user_id:        ObjectId,
@@ -70,11 +75,16 @@ pub struct Directory {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct DirectoryRes {
+pub struct DirsRes {
+    pub dirs: Vec<DirRes>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DirRes {
     pub _id:            ObjectId,
     pub user:           User,
     pub name:           String,
-    pub dirs:           Vec<DirectoryRes>,
+    pub dirs:           Vec<DirRes>,
     pub fileproos:      Vec<FilePropRes>,
     pub parent_id:      Option<ObjectId>,
 }

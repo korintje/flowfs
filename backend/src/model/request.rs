@@ -53,3 +53,12 @@ pub struct UpdateCellReq {
 pub struct GetCellPropReq {
     pub cell_id:        ObjectId,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdateDirReq {
+    pub user_id:        Option<ObjectId>,
+    pub name:           Option<String>,
+    pub dir_ids:        Option<Vec<ObjectId>>,
+    pub fileprop_ids:   Option<Vec<ObjectId>>,
+    pub parent_id:      Option<ObjectId>,
+}
