@@ -1,13 +1,8 @@
-// use sqlx::FromRow;
 use serde::{Deserialize, Serialize};
 use mongodb::bson::{doc, oid::ObjectId};
 
 pub mod request;
 pub use request::*;
-
-// pub mod response;
-// pub use response::*;
-
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct IdRes { pub _id: ObjectId }

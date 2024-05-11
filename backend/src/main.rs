@@ -53,22 +53,7 @@ async fn main() {
 /*
 
         match cmd {
-            3 => {
-                let req: Dir = serde_json::from_slice(body).unwrap();
-                let dirs = db.collection("dirs");
-                let parent_id_wrap = req.parent_id;
-                let dir_id = dirs.insert_one(req, None).await.unwrap().inserted_id;
-                let dir_id = dir_id.as_object_id().unwrap();
-                println!("Dir created with ID: {}", &dir_id);
-                if let Some(parent_id) = parent_id_wrap {
-                    dirs.update_one(
-                        doc! { "_id": parent_id },
-                        doc! { "$push": {"dirs": dir_id} },
-                        None,
-                    ).await.unwrap();
-                }
-                response = serde_json::to_string(&CreateDirRes{dir_id}).unwrap();
-            }
+
             4 => {
                 let req: FileProp = serde_json::from_slice(body).unwrap();
                 let file_props = db.collection("file_props");
