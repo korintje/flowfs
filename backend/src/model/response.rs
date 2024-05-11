@@ -4,13 +4,17 @@ use anyhow;
 
 
 
-/*
 
-// User
+
+// General
 #[derive(Debug, Serialize, Deserialize)]
-pub struct UserIdRes {
+pub struct IdRes {
     pub _id: ObjectId,
 }
+
+// Cell
+
+/*
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ShowUserRes {

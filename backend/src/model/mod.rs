@@ -5,16 +5,9 @@ use mongodb::bson::{doc, oid::ObjectId};
 pub mod request;
 pub use request::*;
 
-pub mod response;
-pub use response::*;
+// pub mod response;
+// pub use response::*;
 
-#[derive(Debug, Serialize, Deserialize)]
-pub enum Res {
-    Error(anyhow::Error),
-    User(User),
-    Cell(Cell),
-    Ok,
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct IdRes { pub _id: ObjectId }
@@ -49,6 +42,23 @@ pub struct Cell {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct CellRes {
+    pub _id:            ObjectId,
+    pub user:           User,
+    pub device:         Device,
+    pub dirs:           Vec<DirectoryRes>,
+    pub fileprops:      Vec<FilePropRes>,
+    pub ancestor_ids:   Vec<ObjectId>,
+    pub text:           String,
+    pub is_open:        bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CellsRes {
+    pub cells: Vec<CellRes>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Directory {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub _id:            Option<ObjectId>,
@@ -60,10 +70,30 @@ pub struct Directory {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct DirectoryRes {
+    pub _id:            ObjectId,
+    pub user:           User,
+    pub name:           String,
+    pub dirs:           Vec<DirectoryRes>,
+    pub fileproos:      Vec<FilePropRes>,
+    pub parent_id:      Option<ObjectId>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct FileProp {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub _id:            Option<ObjectId>,
     pub user_id:        ObjectId,
+    pub name:           String,
+    pub blob_id:        ObjectId,
+    pub completed:      bool,
+    pub parent_id:      Option<ObjectId>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FilePropRes {
+    pub _id:            Option<ObjectId>,
+    pub user:           User,
     pub name:           String,
     pub blob_id:        ObjectId,
     pub completed:      bool,
