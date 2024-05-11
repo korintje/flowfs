@@ -9,6 +9,18 @@ pub mod response;
 pub use response::*;
 
 #[derive(Debug, Serialize, Deserialize)]
+pub enum Res {
+    Error(anyhow::Error),
+    User(User),
+    Cell(Cell),
+    Ok,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct IdRes { pub _id: ObjectId }
+
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Device {
     pub _id:            [u8; 6],
     pub name:           String,
@@ -16,7 +28,8 @@ pub struct Device {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct User {
-    pub _id:            ObjectId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub _id:            Option<ObjectId>,
     pub name:           String,
     pub passhash:       String,
     pub device_ids:     Vec<[u8;6]>,
@@ -24,7 +37,8 @@ pub struct User {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Cell {
-    pub _id:            ObjectId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub _id:            Option<ObjectId>,
     pub user_id:        ObjectId,
     pub device_id:      ObjectId,
     pub dir_ids:        Vec<ObjectId>,
@@ -36,7 +50,8 @@ pub struct Cell {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Directory {
-    pub _id:            ObjectId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub _id:            Option<ObjectId>,
     pub user_id:        ObjectId,
     pub name:           String,
     pub dir_ids:        Vec<ObjectId>,
@@ -46,7 +61,8 @@ pub struct Directory {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FileProp {
-    pub _id:            ObjectId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub _id:            Option<ObjectId>,
     pub user_id:        ObjectId,
     pub name:           String,
     pub blob_id:        ObjectId,
@@ -56,7 +72,8 @@ pub struct FileProp {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FileBlob {
-    pub _id:            ObjectId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub _id:            Option<ObjectId>,
     pub user_id:        ObjectId,
     pub file_name:      String,
     pub blob:           Vec<u8>,

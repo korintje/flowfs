@@ -1,14 +1,15 @@
 use serde::{Deserialize, Serialize};
 use mongodb::bson::oid::ObjectId;
+use anyhow;
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct CreateUserRes {
-    pub user_id: ObjectId,
-}
 
+
+/*
+
+// User
 #[derive(Debug, Serialize, Deserialize)]
-pub struct UpdateUserRes {
-    pub user_id: ObjectId,
+pub struct UserIdRes {
+    pub _id: ObjectId,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -19,19 +20,16 @@ pub struct ShowUserRes {
     pub device_ids:     Vec<[u8;6]>,
 }
 
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CreateDeviceRes {
     pub device_id: ObjectId,
 }
 
+// Cell
 #[derive(Debug, Serialize, Deserialize)]
-pub struct CreateCellRes {
-    pub cell_id: ObjectId,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct UpdateCellRes {
-    pub cell_id: ObjectId,
+pub struct CellIdRes {
+    pub _id: ObjectId,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -61,3 +59,5 @@ pub struct CreateFilePropRes {
 pub struct UploadFileRes {
     pub uploaded_id: ObjectId,
 }
+
+*/

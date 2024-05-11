@@ -1,10 +1,9 @@
-use std::{collections::HashMap, env, io, net::SocketAddr, sync::{Arc, Mutex}};
-use mongodb::{bson::doc, options::{UpdateOptions, AggregateOptions}, Collection, Database};
+use std::env;
+use mongodb::bson::doc; 
 use mongodb::bson::oid::ObjectId;
-// use futures_channel::mpsc::{unbounded, UnboundedSender};
-// use futures_util::{future, pin_mut, StreamExt, AsyncWriteExt};
-use tokio::net::{TcpListener, TcpStream};
-// use tokio_tungstenite::tungstenite::protocol::Message;
+use mongodb::options::{UpdateOptions, AggregateOptions};
+use mongodb::{Collection, Database};
+use anyhow::anyhow;
 
 mod utils;
 mod model;
@@ -13,12 +12,14 @@ use model::*;
 // type Tx = UnboundedSender<Message>;
 // type PeerMap = Arc<Mutex<HashMap<SocketAddr, Tx>>>;
 
-
+use axum::debug_handler;
 use axum::{
-    routing::{get, post, put},
+    routing::get,
     Router,
-    extract::Path,
+    extract::{Path, State},
     response::Json,
+    http::StatusCode,
+    response::IntoResponse,
 };
 
 #[tokio::main]
@@ -33,15 +34,16 @@ async fn main() {
     let db_url = utils::get_db_path();
     let db_client = mongodb::Client::with_uri_str(db_url).await.unwrap();
     let db = db_client.database("flowfs");
-    let db_arc = Arc::new(db);
+    // let db_arc = std::sync::Arc::new(db);
 
     // build our application with a single route
     let app = Router::new()
         .route("/", get(|| async { "Hello, World!" }))
         .route("/users", get(list_users).post(create_user))
-        .route("/users/:id", get(show_user).put(update_user))
+        .route("/users/:id", get(show_user).put(update_user).delete(delete_user))
         .route("/cells/", get(list_cells).post(create_cell))
-        .route("/cells/:id", get(show_cell).put(update_cell));
+        .route("/cells/:id", get(show_cell).put(update_cell).delete(delete_cell))
+        .with_state(db);
 
     // run our app with hyper, listening globally on port 3000
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
@@ -49,39 +51,158 @@ async fn main() {
 
 }
 
-
+// User
 async fn list_users() {}
-async fn create_user() {}
-async fn show_user(Path(id): Path<ObjectId>) -> Json<ShowUserRes> {
-    Json(ShowUserRes {
-        _id:            id,
-        name:           "String".to_string(),
-        passhash:       "String".to_string(),
-        device_ids:     vec![],
-    })
-}
-async fn update_user(Path(id): Path<ObjectId>) -> Json<UpdateUserRes> {
-    Json(UpdateUserRes {user_id: id})
+
+#[debug_handler]
+async fn create_user(State(db): State<Database>, Json(payload): Json<User>) -> anyhow::Result<Json<User>> {
+    let users: Collection<User> = db.collection("users");
+    let r = users.insert_one(&payload, None).await?;
+    let ou = users.find_one(doc!{"_id": r.inserted_id}, None).await?;
+    let user = ou.unwrap();
+    Ok(Json(user))
 }
 
-async fn list_cells() {}
-async fn create_cell() {}
-async fn show_cell(Path(id): Path<ObjectId>) -> Json<ShowCellRes> {
-    Json(ShowCellRes {
-        _id:            id,
-        user_id:        id,
-        device_id:      id,
-        dir_ids:        vec![],
-        fileprop_ids:   vec![],
-        ancestor_ids:   vec![],
-        text:           "String".to_string(),
-        is_open:        true,
-    })
+/*
+async fn create_user(Json(payload): Json<User>, State(db): State<Database>,) -> (StatusCode, Json<Res>) {
+    let users: Collection<User> = db.collection("users");
+    match users.insert_one(&payload, None).await {
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(Res::Error(e.into()))),
+        Ok(r) => {
+            match users.find_one(doc!{"_id": r.inserted_id}, None).await {
+                Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(Res::Error(e.into()))),
+                Ok(None) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(Res::Error(anyhow!("User not found")))),
+                Ok(Some(user)) => return (StatusCode::CREATED, Json(Res::User(user)))
+            }
+        },
+    }
 }
-async fn update_cell(Path(id): Path<ObjectId>) -> Json<UpdateCellRes> {
-    Json(UpdateCellRes {
-        cell_id: id,
-    })
+*/
+
+#[debug_handler]
+async fn show_user(Path(id): Path<ObjectId>, State(db): State<Database>) -> (StatusCode, Json<Res>) {
+    let users: Collection<User> = db.collection("users");
+    let Ok(Some(user)) = users.find_one(doc!{"_id": id}, None).await else {
+        return (StatusCode::NOT_FOUND, Json(Res::Error(anyhow!("User not found"))))
+    };
+    (StatusCode::OK, Json(Res::User(user)))
+}
+
+#[debug_handler]
+async fn update_user(
+    Path(id): Path<ObjectId>, 
+    Json(payload): Json<UpdateUserReq>, 
+    State(db): State<Database>
+) -> (StatusCode, Json<Res>) {
+    let users: Collection<User> = db.collection("users");
+    let mut update_doc = doc! {};
+    if let Some(name) = payload.name {
+        update_doc.insert("name", name);
+    }
+    if let Some(passhash) = payload.passhash {
+        update_doc.insert("passhash", passhash);
+    }
+    /*
+    if let Some(device_ids) = payload.device_ids {
+        update_doc.insert("device_ids", device_ids);
+    }
+    */
+    let options = UpdateOptions::builder().upsert(false).build();
+    match users.update_one(
+        doc! { "_id": id },
+        doc! { "$set": update_doc },
+        Some(options),
+    ).await {
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(Res::Error(e.into()))),
+        Ok(r) => {
+            match users.find_one(doc!{"_id": r.upserted_id}, None).await {
+                Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(Res::Error(e.into()))),
+                Ok(None) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(Res::Error(anyhow!("User not found")))),
+                Ok(Some(user)) => return (StatusCode::OK, Json(Res::User(user)))
+            }
+        },
+    }
+}
+
+#[debug_handler]
+async fn delete_user(Path(id): Path<ObjectId>, State(db): State<Database>) -> (StatusCode, Json<Res>) {
+    let users: Collection<User> = db.collection("users");
+    match users.delete_one(doc! {"_id": id}, None).await {
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(Res::Error(e.into()))),
+        Ok(_r) => (StatusCode::OK, Json(Res::Ok))
+    }
+}
+
+// Cell
+#[debug_handler]
+async fn list_cells() {}
+
+#[debug_handler]
+async fn create_cell(Json(payload): Json<Cell>, State(db): State<Database>) -> (StatusCode, Json<Res>) {
+    let cells: Collection<Cell> = db.collection("cells");
+    match cells.insert_one(&payload, None).await {
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(Res::Error(e.into()))),
+        Ok(r) => {
+            match cells.find_one(doc!{"_id": r.inserted_id}, None).await {
+                Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(Res::Error(e.into()))),
+                Ok(None) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(Res::Error(anyhow!("Cell not found")))),
+                Ok(Some(cell)) => return (StatusCode::CREATED, Json(Res::Cell(cell)))
+            }
+        },
+    }
+}
+
+#[debug_handler]
+async fn show_cell(Path(id): Path<ObjectId>, State(db): State<Database>) -> (StatusCode, Json<Res>) {
+    let cells: Collection<Cell> = db.collection("cells");
+    let Ok(Some(cell)) = cells.find_one(doc!{"_id": id}, None).await else {
+        return (StatusCode::NOT_FOUND, Json(Res::Error(anyhow!("User not found"))))
+    };
+    (StatusCode::OK, Json(Res::Cell(cell)))
+}
+
+#[debug_handler]
+async fn update_cell(
+    Path(id): Path<ObjectId>, 
+    Json(payload): Json<UpdateCellReq>, 
+    State(db): State<Database>
+) -> (StatusCode, Json<Res>) {
+    let cells: Collection<Cell> = db.collection("cells");
+    let mut update_doc = doc! {};
+    /*
+    if let Some(name) = payload.user_id {
+        update_doc.insert("user_id", user_id);
+    }
+    if let Some(passhash) = payload.passhash {
+        update_doc.insert("passhash", passhash);
+    }
+    if let Some(device_ids) = payload.device_ids {
+        update_doc.insert("device_ids", device_ids);
+    }
+    */
+    let options = UpdateOptions::builder().upsert(false).build();
+    match cells.update_one(
+        doc! { "_id": id },
+        doc! { "$set": update_doc },
+        Some(options),
+    ).await {
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(Res::Error(e.into()))),
+        Ok(r) => {
+            match cells.find_one(doc!{"_id": r.upserted_id}, None).await {
+                Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(Res::Error(e.into()))),
+                Ok(None) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(Res::Error(anyhow!("Cell not found")))),
+                Ok(Some(cell)) => return (StatusCode::OK, Json(Res::Cell(cell)))
+            }
+        },
+    }
+}
+
+async fn delete_cell(Path(id): Path<ObjectId>, State(db): State<Database>) -> (StatusCode, Json<Res>) {
+    let cells: Collection<User> = db.collection("cells");
+    match cells.delete_one(doc! {"_id": id}, None).await {
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(Res::Error(e.into()))),
+        Ok(_r) => (StatusCode::OK, Json(Res::Ok))
+    }
 }
 
 
