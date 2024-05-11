@@ -62,3 +62,10 @@ pub struct UpdateDirReq {
     pub fileprop_ids:   Option<Vec<ObjectId>>,
     pub parent_id:      Option<ObjectId>,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdateFilePropReq {
+    pub user_id:        Option<ObjectId>,
+    pub name:           Option<String>,
+    pub parent_id:      Option<ObjectId>,
+}

@@ -67,6 +67,7 @@ pub async fn create_dir(
     State(db): State<Database>, 
     Json(payload): Json<Dir>
 ) -> Result<Json<Dir>, StatusCode> {
+    let parent_id_wrap = payload.parent_id;
     let dirs: Collection<Dir> = db.collection("dirs");
     let rt = match dirs.insert_one(&payload, None).await {
         Err(e) => {
@@ -75,7 +76,21 @@ pub async fn create_dir(
         }
         Ok(rt) => rt
     };
-    match dirs.find_one(doc!{"_id": rt.inserted_id}, None).await {
+    let mut inserted_id = rt.inserted_id; 
+    if let Some(parent_id) = parent_id_wrap {
+        match dirs.update_one(
+            doc! { "_id": parent_id },
+            doc! { "$push": {"dirs": inserted_id} },
+            None,
+        ).await {
+            Err(e) => {
+                error!("{}", e);
+                return Err(StatusCode::INTERNAL_SERVER_ERROR)
+            }
+            Ok(rt2) => inserted_id = rt2.upserted_id.unwrap()
+        }
+    };
+    match dirs.find_one(doc!{"_id": inserted_id}, None).await {
         Err(e) => {
             error!("{}", e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
@@ -84,7 +99,10 @@ pub async fn create_dir(
             error!("Dir not found");
             Err(StatusCode::NOT_FOUND)            
         }
-        Ok(Some(dir)) => Ok(Json(dir))
+        Ok(Some(dir)) => {
+            
+            Ok(Json(dir))
+        }
     }
 }
 

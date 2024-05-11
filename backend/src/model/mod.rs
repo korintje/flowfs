@@ -111,6 +111,11 @@ pub struct FilePropRes {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct FilePropsRes {
+    pub fileprops:      Vec<FilePropRes>,            
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct FileBlob {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub _id:            Option<ObjectId>,
