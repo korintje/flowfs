@@ -1,19 +1,91 @@
 use std::{collections::HashMap, env, io, net::SocketAddr, sync::{Arc, Mutex}};
 use mongodb::{bson::doc, options::{UpdateOptions, AggregateOptions}, Collection, Database};
-use futures_channel::mpsc::{unbounded, UnboundedSender};
-use futures_util::{future, pin_mut, StreamExt, AsyncWriteExt};
+use mongodb::bson::oid::ObjectId;
+// use futures_channel::mpsc::{unbounded, UnboundedSender};
+// use futures_util::{future, pin_mut, StreamExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
-use tokio_tungstenite::tungstenite::protocol::Message;
+// use tokio_tungstenite::tungstenite::protocol::Message;
 
 mod utils;
 mod model;
 use model::*;
 
-type Tx = UnboundedSender<Message>;
-type PeerMap = Arc<Mutex<HashMap<SocketAddr, Tx>>>;
+// type Tx = UnboundedSender<Message>;
+// type PeerMap = Arc<Mutex<HashMap<SocketAddr, Tx>>>;
 
 
+use axum::{
+    routing::{get, post, put},
+    Router,
+    extract::Path,
+    response::Json,
+};
 
+#[tokio::main]
+async fn main() {
+
+    // Set web URL
+    let listen_url = utils::get_url();
+    let addr = env::args().nth(1).unwrap_or_else(|| listen_url);
+
+    // MongoDBクライアントのセットアップ
+    // Ref: https://www.mongodb.com/docs/drivers/rust/current/quick-start/connect-to-mongodb/
+    let db_url = utils::get_db_path();
+    let db_client = mongodb::Client::with_uri_str(db_url).await.unwrap();
+    let db = db_client.database("flowfs");
+    let db_arc = Arc::new(db);
+
+    // build our application with a single route
+    let app = Router::new()
+        .route("/", get(|| async { "Hello, World!" }))
+        .route("/users", get(list_users).post(create_user))
+        .route("/users/:id", get(show_user).put(update_user))
+        .route("/cells/", get(list_cells).post(create_cell))
+        .route("/cells/:id", get(show_cell).put(update_cell));
+
+    // run our app with hyper, listening globally on port 3000
+    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    axum::serve(listener, app).await.unwrap();
+
+}
+
+
+async fn list_users() {}
+async fn create_user() {}
+async fn show_user(Path(id): Path<ObjectId>) -> Json<ShowUserRes> {
+    Json(ShowUserRes {
+        _id:            id,
+        name:           "String".to_string(),
+        passhash:       "String".to_string(),
+        device_ids:     vec![],
+    })
+}
+async fn update_user(Path(id): Path<ObjectId>) -> Json<UpdateUserRes> {
+    Json(UpdateUserRes {user_id: id})
+}
+
+async fn list_cells() {}
+async fn create_cell() {}
+async fn show_cell(Path(id): Path<ObjectId>) -> Json<ShowCellRes> {
+    Json(ShowCellRes {
+        _id:            id,
+        user_id:        id,
+        device_id:      id,
+        dir_ids:        vec![],
+        fileprop_ids:   vec![],
+        ancestor_ids:   vec![],
+        text:           "String".to_string(),
+        is_open:        true,
+    })
+}
+async fn update_cell(Path(id): Path<ObjectId>) -> Json<UpdateCellRes> {
+    Json(UpdateCellRes {
+        cell_id: id,
+    })
+}
+
+
+/*
 async fn handle_connection(peer_map: PeerMap, db: Arc<Database>, raw_stream: TcpStream, addr: SocketAddr) {
 
     println!("Incoming TCP connection from: {}", addr);
@@ -208,34 +280,4 @@ async fn handle_connection(peer_map: PeerMap, db: Arc<Database>, raw_stream: Tcp
     println!("{} disconnected", &addr);
     peer_map.lock().unwrap().remove(&addr);
 }
-
-#[tokio::main]
-async fn main() -> Result<(), io::Error> {
-
-    // Set web URL
-    let listen_url = utils::get_url();
-    let addr = env::args().nth(1).unwrap_or_else(|| listen_url);
-
-    // MongoDBクライアントのセットアップ
-    // Ref: https://www.mongodb.com/docs/drivers/rust/current/quick-start/connect-to-mongodb/
-    let db_url = utils::get_db_path();
-    let db_client = mongodb::Client::with_uri_str(db_url).await.unwrap();
-    let db = db_client.database("flowfs");
-    let db_arc = Arc::new(db);
-
-    // Create PeerMap state
-    let state = PeerMap::new(Mutex::new(HashMap::new()));
-
-    // Create the event loop and TCP listener.
-    let try_socket = TcpListener::bind(&addr).await;
-    let listener = try_socket.expect("Failed to bind");
-    println!("Listening on: {}", addr);
-
-    // Spawn the handling of each connection in a separate task.
-    while let Ok((stream, addr)) = listener.accept().await {
-        let db_clone = Arc::clone(&db_arc);
-        tokio::spawn(handle_connection(state.clone(), db_clone, stream, addr));
-    }
-
-    Ok(())
-}
+*/

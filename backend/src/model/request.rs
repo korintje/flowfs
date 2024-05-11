@@ -2,6 +2,16 @@ use serde::{Deserialize, Serialize};
 use mongodb::bson::oid::ObjectId;
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct GetUserReq {
+    pub user_id:        ObjectId,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdateUserReq {
+    pub user_id:        ObjectId,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct UpdateCellReq {
     pub _id:            ObjectId,
     pub user_id:        Option<ObjectId>,

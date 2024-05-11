@@ -1,95 +1,120 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-// Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
-
-use std::env;
-use futures_util::{future, pin_mut, StreamExt};
-use tokio::io::{AsyncReadExt, AsyncWriteExt, AsyncBufReadExt, BufReader};
-use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
-use mac_address::get_mac_address;
-
-mod model;
-use model::*;
+use std::sync::{Arc, Mutex};
+use tauri::WindowBuilder;
+use tokio::net::TcpStream;
+use tokio_tungstenite::tungstenite::protocol::Message;
+use tokio_tungstenite::tungstenite::Message as WsMessage;
+use tokio_tungstenite::connect_async;
+use tokio::sync::mpsc::{self, Receiver, Sender};
+use tokio::sync::oneshot;
+use std::net::SocketAddr;
+use std::time::Duration;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // UIスレッドと通信するチャンネルを作成します
+    let (tx_ui, mut rx_ui) = mpsc::channel::<String>(32);
 
-    tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![greet])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+    // WebSocketスレッドと通信するチャンネルを作成します
+    let (tx_ws, mut rx_ws) = mpsc::channel::<String>(32);
 
-    let connect_addr = env::args().nth(1).unwrap_or_else(|| panic!("requires at least one argument"));
-    let url = url::Url::parse(&connect_addr).unwrap();
-
-    // 標準入力チャネル
-    let (stdin_tx, stdin_rx) = futures_channel::mpsc::unbounded();
-    tokio::spawn(read_stdin(stdin_tx));
-
-    // Websocketに接続
-    let (ws_stream, _) = connect_async(url).await.expect("Failed to connect");
-    println!("WebSocket handshake has been successfully completed");
-
-    // websocket streamをreadとwriteに分割
-    let (write, read) = ws_stream.split();
-
-    // 標準入力(stdin_rx）からの入力をwriteにforward
-    let stdin_to_ws = stdin_rx.map(Ok).forward(write);
-
-    // websocket readから標準出力に書き出し
-    let ws_to_stdout = {
-        read.for_each(|message| async {
-            let data = message.unwrap().into_data();
-            tokio::io::stdout().write_all(&data).await.unwrap();
+    // Tauriアプリケーションを開始します
+    let app = tauri::Builder::default()
+        .invoke_handler(move |arg| {
+            let tx_ui = tx_ui.clone();
+            tauri::async_runtime::spawn(async move {
+                if let Ok(arg) = arg {
+                    if arg == "GREET" {
+                        // "GREET"メッセージが送信された場合、WebSocketスレッドに"hello"メッセージを送信します
+                        tx_ws.send("hello".to_string()).await.unwrap();
+                    }
+                }
+            });
+            Ok(())
         })
-    };
+        .build(tauri::generate_context!());
 
-    // 非同期の処理をピン留めし、メモリから動的に再配置されないようにします。
-    pin_mut!(stdin_to_ws, ws_to_stdout);
+    // WebSocketスレッドを起動します
+    tokio::spawn(async move {
+        let server_addr: SocketAddr = "127.0.0.1:8080".parse().unwrap();
 
-    // は、stdin_to_wsとws_to_stdoutの両方の非同期処理が完了するまで待ち、最初に完了した方の処理を続行します。
-    future::select(stdin_to_ws, ws_to_stdout).await;
+        loop {
+            // WebSocketサーバーに接続します
+            let (ws_stream, _) = match connect_async(format!("ws://{}/websocket", server_addr)).await {
+                Ok((ws_stream, _)) => ws_stream,
+                Err(e) => {
+                    println!("Failed to connect to server: {}", e);
+                    // 接続に失敗した場合、1秒待って再接続を試みます
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                    continue;
+                }
+            };
 
-}
+            // WebSocketサーバーからのメッセージを処理します
+            let (write, read) = ws_stream.split();
+            let (tx, mut rx) = mpsc::channel::<Result<WsMessage, tokio_tungstenite::tungstenite::Error>>(32);
 
+            // WebSocketサーバーからのメッセージをUIスレッドに送信します
+            tokio::spawn(async move {
+                while let Some(msg) = rx.recv().await {
+                    if let Ok(msg) = msg {
+                        let msg = match msg {
+                            WsMessage::Text(text) => text,
+                            WsMessage::Binary(bin) => String::from_utf8(bin).unwrap(),
+                            _ => continue,
+                        };
+                        tx_ui.send(msg).await.unwrap();
+                    }
+                }
+            });
 
-async fn read_stdin(tx: futures_channel::mpsc::UnboundedSender<Message>) {
-    
-    let stdin = BufReader::new(tokio::io::stdin());
+            // WebSocketサーバーにメッセージを送信するためのハンドラを作成します
+            let (tx_ws_clone, rx_ws_clone) = mpsc::channel::<String>(32);
+            tokio::spawn(async move {
+                while let Some(msg) = rx_ws_clone.recv().await {
+                    if let Err(e) = write.send(WsMessage::Text(msg)).await {
+                        println!("Failed to send message: {}", e);
+                    }
+                }
+            });
 
-    let mut lines = stdin.lines();
+            // WebSocketサーバーからのメッセージを受信します
+            tokio::spawn(async move {
+                let mut read = read;
+                while let Some(msg) = read.next().await {
+                    match msg {
+                        Ok(msg) => {
+                            tx.send(Ok(msg)).await.unwrap();
+                        }
+                        Err(e) => {
+                            println!("Failed to receive message: {}", e);
+                            // 接続が切断された場合、再接続を試みます
+                            break;
+                        }
+                    }
+                }
+            });
 
-    while let Some(line) = lines.next_line().await.unwrap() {
-        let line = line.trim();
-
-        match line {
-            "0" => {
-                println!("Command 0");
-                let device_name = std::env::var("HOSTNAME").unwrap_or("Unknown".to_string());
-                let mac_address = get_mac_address().unwrap();
-                let _id: [u8; 6] = mac_address.unwrap().bytes();
-                let new_device = Device { _id, name: device_name };
-                let req_str = serde_json::to_string(&new_device).unwrap();
-                tx.unbounded_send(req_str.into()).unwrap();
-            }
-            "1" => {
-                println!("Command 1");
-                let user_name = "Mukia Tomei".to_string();
-                let passhash = "1234abcd".to_string();
-                let _id = mongodb::bson::oid::ObjectId::new();
-                let new_user = User { _id, name: user_name, passhash, device_ids: vec![] };
-                let req_str = serde_json::to_string(&new_user).unwrap();
-                tx.unbounded_send(req_str.into()).unwrap();
-            }
-            _ => {
-                println!("Command n");
+            // UIスレッドからのメッセージを処理します
+            while let Some(msg) = rx_ws.recv().await {
+                // WebSocketスレッドにメッセージを送信します
+                tx_ws_clone.send(msg).await.unwrap();
             }
         }
-    }
-    
+    });
+
+    // UIを作成します
+    app.run(|app_handle| {
+        let window = WindowBuilder::new().build(app_handle).unwrap();
+        let tx_ui = tx_ui.clone();
+        window.listen("update_message", move |_msg| {
+            tx_ui.clone().try_send("UPDATED".to_string()).unwrap();
+        });
+
+        Ok(())
+    });
+
+    Ok(())
 }
