@@ -1,9 +1,9 @@
 use log::error;
-use mongodb::bson::{doc, Document}; 
+use mongodb::bson::doc; 
 use mongodb::bson::{oid::ObjectId, from_document};
-use mongodb::options::{UpdateOptions, AggregateOptions};
-use mongodb::{Collection, Database};
-use futures_util::{StreamExt, TryStreamExt};
+use mongodb::options::AggregateOptions;
+use mongodb::Collection;
+use futures_util::TryStreamExt;
 
 use crate::model::*;
 
@@ -14,36 +14,14 @@ use axum::{
     http::StatusCode,
 };
 
-/*
-#[debug_handler]
-pub async fn list_cells(
-    State(users): State<Collection<User>>,
-    Path((user_id, cell_id)): Path<(ObjectId, ObjectId)>,
-) -> Result<Json<User>, StatusCode> {
-    let user = match users.find_one(doc!{"_id": user_id,}, None).await {
-        Ok(user) => cursor,
-        Err(e) => {
-            error!("{}", e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    };
-    let vd: Vec<Document> = cursor.try_collect().await.unwrap();
-    
-    // let vc: Vec<Cell> = vd.into_iter().map(|d| {from_document::<Cell>(d).unwrap()}).collect();
-    // Ok(Json(User{cells: vc}))
-}
-*/
-
-
 #[debug_handler]
 pub async fn create_cell(
     Path(user_id): Path<ObjectId>,
     State(users): State<Collection<User>>,
     Json(payload): Json<Cell>
-) -> Result<Json<Cell>, StatusCode> {
-    // let cells: Collection<Cell> = db.collection("cells");
+) -> Result<Json<User>, StatusCode> {
     let filter = doc! {"_id": user_id};
-    let update = Document(doc! {"$push": {"cells": payload}});
+    let update = doc! {"$push": {"cells": payload}};
     let options = mongodb::options::FindOneAndUpdateOptions::builder()
         .return_document(mongodb::options::ReturnDocument::After)
         .build();
@@ -52,19 +30,11 @@ pub async fn create_cell(
             error!("{}", e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         },
-        Ok(r) => {
-            match cells.find_one(doc!{"_id": r.inserted_id}, None).await {
-                Err(e) => {
-                    error!("{}", e);
-                    Err(StatusCode::INTERNAL_SERVER_ERROR)
-                },
-                Ok(None) => {
-                    error!("Cell not found");
-                    Err(StatusCode::NOT_FOUND)
-                },
-                Ok(Some(cell)) => Ok(Json(cell))
-            }
-        },
+        Ok(None) => {
+                error!("Cell not found");
+                Err(StatusCode::NOT_FOUND)
+            },
+        Ok(Some(user)) => Ok(Json(user))
     }
 }
 
