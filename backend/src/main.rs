@@ -1,17 +1,19 @@
 use std::env;
 use env_logger;
+use mongodb::Collection;
 
 mod utils;
 mod model;
 mod handler;
+use model::User;
 use handler::{
     user::{list_users, create_user, show_user, update_user, delete_user},
-    cell::{list_cells, create_cell, show_cell, update_cell, delete_cell},
-    dir::{list_dirs, create_dir, show_dir, update_dir, delete_dir},
+    cell::{create_cell, show_cell, update_cell, delete_cell},
+    // dir::{list_dirs, create_dir, show_dir, update_dir, delete_dir},
 };
 
 use axum::{
-    routing::get,
+    routing::{get, post},
     Router,
 };
 
@@ -30,17 +32,16 @@ async fn main() {
     let db_url = utils::get_db_path();
     let db_client = mongodb::Client::with_uri_str(db_url).await.unwrap();
     let db = db_client.database("flowfs");
+    let col: Collection<User> = db.collection("users");
 
     // build our application with a single route
     let app = Router::new()
         .route("/", get(|| async { "Hello, World!" }))
         .route("/users", get(list_users).post(create_user))
-        .route("/users/:id", get(show_user).put(update_user).delete(delete_user))
-        .route("/cells/", get(list_cells).post(create_cell))
-        .route("/cells/:id", get(show_cell).put(update_cell).delete(delete_cell))
-        .route("/dirs/", get(list_dirs).post(create_dir))
-        .route("/dirs/:id", get(show_dir).put(update_dir).delete(delete_dir))
-        .with_state(db);
+        .route("/users/:user_id", get(show_user).put(update_user).delete(delete_user))
+        .route("/users/:user_id/cells/", post(create_cell))
+        .route("/users/:user_id/cells/:cell_id", get(show_cell).put(update_cell).delete(delete_cell))
+        .with_state(col);
 
     // run our app with hyper, listening globally on port 3000
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();

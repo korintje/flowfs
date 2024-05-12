@@ -16,7 +16,7 @@ use axum::{
 
 #[debug_handler]
 pub async fn list_dirs(
-    State(db): State<Database>, 
+    State(users): State<Collection<User>>, 
 ) -> Result<Json<DirsRes>, StatusCode> {
     let dirs: Collection<Dir> = db.collection("dirs");
     let pipeline: Vec<mongodb::bson::Document> = vec![
@@ -64,7 +64,7 @@ pub async fn list_dirs(
 
 #[debug_handler]
 pub async fn create_dir(
-    State(db): State<Database>, 
+    State(users): State<Collection<User>>, 
     Json(payload): Json<Dir>
 ) -> Result<Json<Dir>, StatusCode> {
     let parent_id_wrap = payload.parent_id;
@@ -110,7 +110,7 @@ pub async fn create_dir(
 #[debug_handler]
 pub async fn show_dir(
     Path(id): Path<ObjectId>,
-    State(db): State<Database>
+    State(users): State<Collection<User>>
 ) -> Result<Json<Dir>, StatusCode> {
     let dirs: Collection<Dir> = db.collection("dirs");
     let pipeline: Vec<mongodb::bson::Document> = vec![
@@ -171,7 +171,7 @@ pub async fn show_dir(
 #[debug_handler]
 pub async fn update_dir(
     Path(id): Path<ObjectId>,
-    State(db): State<Database>,
+    State(users): State<Collection<User>>,
     Json(payload): Json<UpdateDirReq>, 
 ) -> Result<Json<Dir>, StatusCode> {
     let dirs: Collection<Dir> = db.collection("dirs");
@@ -216,7 +216,7 @@ pub async fn update_dir(
 #[debug_handler]
 pub async fn delete_dir(
     Path(id): Path<ObjectId>,
-    State(db): State<Database>
+    State(users): State<Collection<User>>
 ) -> Result<Json<IdRes>, StatusCode> {
     let dirs: Collection<Dir> = db.collection("dirs");
     match dirs.delete_one(doc! {"_id": id}, None).await {

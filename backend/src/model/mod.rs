@@ -4,15 +4,14 @@ use mongodb::bson::{doc, oid::ObjectId};
 pub mod request;
 pub use request::*;
 
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct IdRes { pub _id: ObjectId }
 
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Device {
-    pub _id:            [u8; 6],
-    pub name:           String,
-}
+pub struct Root { pub users: Vec<User> }
+
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct User {
@@ -20,95 +19,69 @@ pub struct User {
     pub _id:            Option<ObjectId>,
     pub name:           String,
     pub passhash:       String,
-    pub device_ids:     Vec<[u8;6]>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct UsersRes {
-    pub users: Vec<User>,
+    pub cells:          Vec<Cell>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Cell {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub _id:            Option<ObjectId>,
-    pub user_id:        ObjectId,
-    pub device_id:      ObjectId,
-    pub dir_ids:        Vec<ObjectId>,
-    pub fileprop_ids:   Vec<ObjectId>,
+    pub rootdir:        Dir,
     pub ancestor_ids:   Vec<ObjectId>,
     pub text:           String,
+    pub device_id:      String,
     pub is_open:        bool,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct CellRes {
-    pub _id:            ObjectId,
-    pub user:           User,
-    pub device:         Device,
-    pub dirs:           Vec<DirRes>,
-    pub fileprops:      Vec<FilePropRes>,
-    pub ancestor_ids:   Vec<ObjectId>,
-    pub text:           String,
-    pub is_open:        bool,
+impl Into<mongodb::bson::Bson> for Cell {
+    fn into(self) -> mongodb::bson::Bson {
+        mongodb::bson::Bson::Document(doc! {
+            "_id":            self._id,
+            "rootdir":        self.rootdir,
+            "ancestor_ids":   self.ancestor_ids,
+            "text":           self.text,
+            "device_id":      self.device_id,
+            "is_open":        self.is_open,
+        })
+    }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct CellsRes {
-    pub cells: Vec<CellRes>,
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Dir {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub _id:            Option<ObjectId>,
-    pub user_id:        ObjectId,
     pub name:           String,
-    pub dir_ids:        Vec<ObjectId>,
-    pub fileprop_ids:   Vec<ObjectId>,
-    pub parent_id:      Option<ObjectId>,
+    pub dirs:           Vec<Dir>,
+    pub fileprops:      Vec<FileProp>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct DirsRes {
-    pub dirs: Vec<DirRes>,
+impl Into<mongodb::bson::Bson> for Dir {
+    fn into(self) -> mongodb::bson::Bson {
+        mongodb::bson::Bson::Document(doc! {
+            "name": self.name,
+            "dirs": self.dirs,
+            "fileprops": self.fileprops,
+        })
+    }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct DirRes {
-    pub _id:            ObjectId,
-    pub user:           User,
-    pub name:           String,
-    pub dirs:           Vec<DirRes>,
-    pub fileproos:      Vec<FilePropRes>,
-    pub parent_id:      Option<ObjectId>,
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FileProp {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub _id:            Option<ObjectId>,
-    pub user_id:        ObjectId,
     pub name:           String,
     pub blob_id:        ObjectId,
     pub completed:      bool,
-    pub parent_id:      Option<ObjectId>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct FilePropRes {
-    pub _id:            Option<ObjectId>,
-    pub user:           User,
-    pub name:           String,
-    pub blob_id:        ObjectId,
-    pub completed:      bool,
-    pub parent_id:      Option<ObjectId>,
+impl Into<mongodb::bson::Bson> for FileProp {
+    fn into(self) -> mongodb::bson::Bson {
+        mongodb::bson::Bson::Document(doc! {
+            "name": self.name,
+            "blob_id": self.blob_id,
+            "completed": self.completed,
+        })
+    }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct FilePropsRes {
-    pub fileprops:      Vec<FilePropRes>,            
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FileBlob {
@@ -117,4 +90,13 @@ pub struct FileBlob {
     pub user_id:        ObjectId,
     pub file_name:      String,
     pub blob:           Vec<u8>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdateCellReq {
+    pub _id:            ObjectId,
+    pub rootdir:        Option<Dir>,
+    pub ancestor_ids:   Option<Vec<ObjectId>>,
+    pub text:           Option<String>,
+    pub is_open:        Option<bool>,
 }

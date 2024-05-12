@@ -14,69 +14,40 @@ use axum::{
     http::StatusCode,
 };
 
+/*
 #[debug_handler]
-pub async fn list_cells(State(db): State<Database>) -> Result<Json<CellsRes>, StatusCode> {
-    let cells: Collection<Cell> = db.collection("cells");
-    let pipeline: Vec<mongodb::bson::Document> = vec![
-        doc! {
-            "$match": {}
-        },
-        doc! {
-            "$graphLookup": {
-                "from": "devices",
-                "startWith": "$device_id",
-                "connectFromField": "device_id",
-                "connectToField": "_id",
-                "as": "device",
-            }
-        },
-        doc! {
-            "$graphLookup": {
-                "from": "users",
-                "startWith": "$user_id",
-                "connectFromField": "user_id",
-                "connectToField": "_id",
-                "as": "user"
-            }
-        },
-        doc! {
-            "$graphLookup": {
-                "from": "fileprops",
-                "startWith": "$fileprop_ids",
-                "connectFromField": "fileprop_ids",
-                "connectToField": "_id",
-                "as": "fileprops"
-            }
-
-        },
-        doc! {
-            "$project": {
-                "user.passhash": 0,
-            }
-        },
-    ];
-    let options = AggregateOptions::builder().build();
-    let cursor = match cells.aggregate(pipeline, options).await {
-        Ok(cursor) => cursor,
+pub async fn list_cells(
+    State(users): State<Collection<User>>,
+    Path((user_id, cell_id)): Path<(ObjectId, ObjectId)>,
+) -> Result<Json<User>, StatusCode> {
+    let user = match users.find_one(doc!{"_id": user_id,}, None).await {
+        Ok(user) => cursor,
         Err(e) => {
             error!("{}", e);
             return Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     };
     let vd: Vec<Document> = cursor.try_collect().await.unwrap();
-    let vc: Vec<CellRes> = vd.into_iter().map(|d| {from_document::<CellRes>(d).unwrap()}).collect();
-    Ok(Json(CellsRes{cells: vc}))
+    
+    // let vc: Vec<Cell> = vd.into_iter().map(|d| {from_document::<Cell>(d).unwrap()}).collect();
+    // Ok(Json(User{cells: vc}))
 }
-
+*/
 
 
 #[debug_handler]
 pub async fn create_cell(
-    State(db): State<Database>,
+    Path(user_id): Path<ObjectId>,
+    State(users): State<Collection<User>>,
     Json(payload): Json<Cell>
 ) -> Result<Json<Cell>, StatusCode> {
-    let cells: Collection<Cell> = db.collection("cells");
-    match cells.insert_one(&payload, None).await {
+    // let cells: Collection<Cell> = db.collection("cells");
+    let filter = doc! {"_id": user_id};
+    let update = Document(doc! {"$push": {"cells": payload}});
+    let options = mongodb::options::FindOneAndUpdateOptions::builder()
+        .return_document(mongodb::options::ReturnDocument::After)
+        .build();
+    match users.find_one_and_update(filter, update, options).await {
         Err(e) => {
             error!("{}", e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
@@ -100,65 +71,17 @@ pub async fn create_cell(
 
 #[debug_handler]
 pub async fn show_cell(
-    Path(id): Path<ObjectId>,
-    State(db): State<Database>
-) -> Result<Json<CellRes>, StatusCode> {
-    let cells: Collection<Cell> = db.collection("cells");
+    Path((user_id, cell_id)): Path<(ObjectId, ObjectId)>,
+    State(users): State<Collection<User>>
+) -> Result<Json<Cell>, StatusCode> {
     let pipeline: Vec<mongodb::bson::Document> = vec![
-        doc! {
-            "$match": {
-                "_id": id,
-            }
-        },
-        doc! {
-            "$graphLookup": {
-                "from": "devices",
-                "startWith": "$device_id",
-                "connectFromField": "device_id",
-                "connectToField": "_id",
-                "as": "device",
-            }
-        },
-        doc! {
-            "$graphLookup": {
-                "from": "users",
-                "startWith": "$user_id",
-                "connectFromField": "user_id",
-                "connectToField": "_id",
-                "as": "user"
-            }
-        },
-        doc! {
-            "$graphLookup": {
-                "from": "dirs",
-                "startWith": "$dir_ids",
-                "connectFromField": "dir_ids",
-                "connectToField": "_id",
-                "as": "dirs"
-            }
-
-        },
-        doc! {
-            "$graphLookup": {
-                "from": "fileprops",
-                "startWith": "$fileprop_ids",
-                "connectFromField": "fileprop_ids",
-                "connectToField": "_id",
-                "as": "fileprops"
-            }
-
-        },
-        doc! {
-            "$project": {
-                "user.passhash": 0,
-            }
-        },
-        doc! {
-            "$limit": 1
-        },
+        doc! {"$match": {"_id": user_id}},
+        doc! {"$unwind": "$cells"},
+        doc! {"$match": {"cells._id": cell_id}},
+        doc! {"$limit": 1},
     ];
     let options = AggregateOptions::builder().build();
-    let mut cursor = match cells.aggregate(pipeline, options).await {
+    let mut cursor = match users.aggregate(pipeline, options).await {
         Ok(cursor) => cursor,
         Err(e) => {
             error!("{}", e);
@@ -166,7 +89,7 @@ pub async fn show_cell(
         }
     };
     match cursor.try_next().await {
-        Ok(Some(cell_res)) => Ok(Json(from_document(cell_res).unwrap())),
+        Ok(Some(cell)) => Ok(Json(from_document(cell).unwrap())),
         Ok(None) => {
             error!("{}", "Cel not found");
             Err(StatusCode::NOT_FOUND)        
@@ -181,59 +104,60 @@ pub async fn show_cell(
 
 #[debug_handler]
 pub async fn update_cell(
-    Path(id): Path<ObjectId>, 
-    State(db): State<Database>,
+    Path((user_id, cell_id)): Path<(ObjectId, ObjectId)>,
+    State(users): State<Collection<User>>,
     Json(payload): Json<UpdateCellReq>
-) -> Result<Json<Cell>, StatusCode> {
-    let cells: Collection<Cell> = db.collection("cells");
-    let mut update_doc = doc! {};
-    /*
-    if let Some(name) = payload.user_id {
-        update_doc.insert("user_id", user_id);
-    }
-    if let Some(passhash) = payload.passhash {
-        update_doc.insert("passhash", passhash);
-    }
-    if let Some(device_ids) = payload.device_ids {
-        update_doc.insert("device_ids", device_ids);
-    }
-    */
-    let options = UpdateOptions::builder().upsert(false).build();
-    match cells.update_one(
-        doc! { "_id": id },
-        doc! { "$set": update_doc },
-        Some(options),
-    ).await {
+) -> Result<Json<User>, StatusCode> {
+    let filter = doc! {"_id": user_id, "cells._id": cell_id};
+    let options = mongodb::options::FindOneAndUpdateOptions::builder()
+        .return_document(mongodb::options::ReturnDocument::After)
+        .build();
+    let update = doc! {
+        "$set": {
+            "cells.$.ancestor_ids": payload.ancestor_ids,
+            "cells.$.text": payload.text,
+            "cells.$.is_open": payload.is_open,
+        }
+    };
+    match users.find_one_and_update(filter, update, options).await {
         Err(e) => {
             error!("{}", e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         },
-        Ok(r) => {
-            match cells.find_one(doc!{"_id": r.upserted_id}, None).await {
-                Err(e) => {
-                    error!("{}", e);
-                    Err(StatusCode::INTERNAL_SERVER_ERROR)
-                },
-                Ok(None) => {
+        Ok(ou) => {
+            match ou {
+                None => {
                     error!("Cell not found.");
-                    Err(StatusCode::INTERNAL_SERVER_ERROR)
+                    Err(StatusCode::NOT_FOUND)
                 },
-                Ok(Some(cell)) => Ok(Json(cell))
+                Some(user) => Ok(Json(user))
             }
         },
     }
 }
 
 pub async fn delete_cell(
-    Path(id): Path<ObjectId>,
-    State(db): State<Database>
-) -> Result<Json<IdRes>, StatusCode> {
-    let cells: Collection<Dir> = db.collection("cells");
-    match cells.delete_one(doc! {"_id": id}, None).await {
+    Path((user_id, cell_id)): Path<(ObjectId, ObjectId)>,
+    State(users): State<Collection<User>>
+) -> Result<Json<User>, StatusCode> {
+    let filter = doc! {"_id": user_id};
+    let options = mongodb::options::FindOneAndUpdateOptions::builder()
+        .return_document(mongodb::options::ReturnDocument::After)
+        .build();
+    let update = doc! {"$pull": {"cells": {"_id": cell_id}}};
+    match users.find_one_and_update(filter, update, options).await {
         Err(e) => {
             error!("{}", e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         },
-        Ok(_r) => Ok(Json(IdRes{_id: id}))
+        Ok(ou) => {
+            match ou {
+                None => {
+                    error!("Cell not found.");
+                    Err(StatusCode::NOT_FOUND)
+                },
+                Some(user) => Ok(Json(user))
+            }
+        },
     }
 }

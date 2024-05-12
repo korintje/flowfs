@@ -16,7 +16,7 @@ use axum::{
 
 #[debug_handler]
 pub async fn list_fileprops(
-    State(db): State<Database>, 
+    State(users): State<Collection<User>>, 
 ) -> Result<Json<FilePropsRes>, StatusCode> {
     let fileprops: Collection<FileProp> = db.collection("fileprops");
     let pipeline: Vec<mongodb::bson::Document> = vec![
@@ -64,7 +64,7 @@ pub async fn list_fileprops(
 
 #[debug_handler]
 pub async fn create_fileprop(
-    State(db): State<Database>, 
+    State(users): State<Collection<User>>, 
     Json(payload): Json<FileProp>
 ) -> Result<Json<FileProp>, StatusCode> {
     let parent_id_wrap = payload.parent_id;
@@ -110,7 +110,7 @@ pub async fn create_fileprop(
 #[debug_handler]
 pub async fn show_fileprop(
     Path(id): Path<ObjectId>,
-    State(db): State<Database>
+    State(users): State<Collection<User>>
 ) -> Result<Json<FileProp>, StatusCode> {
     let fileprops: Collection<FileProp> = db.collection("fileprops");
     let pipeline: Vec<mongodb::bson::Document> = vec![
@@ -171,7 +171,7 @@ pub async fn show_fileprop(
 #[debug_handler]
 pub async fn update_fileprop(
     Path(id): Path<ObjectId>,
-    State(db): State<Database>,
+    State(users): State<Collection<User>>,
     Json(payload): Json<UpdateFilePropReq>, 
 ) -> Result<Json<FileProp>, StatusCode> {
     let fileprops: Collection<FileProp> = db.collection("fileprops");
@@ -216,7 +216,7 @@ pub async fn update_fileprop(
 #[debug_handler]
 pub async fn delete_fileprop(
     Path(id): Path<ObjectId>,
-    State(db): State<Database>
+    State(users): State<Collection<User>>
 ) -> Result<Json<IdRes>, StatusCode> {
     let fileprops: Collection<FileProp> = db.collection("fileprops");
     match fileprops.delete_one(doc! {"_id": id}, None).await {
