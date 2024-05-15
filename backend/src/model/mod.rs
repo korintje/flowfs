@@ -10,7 +10,7 @@ pub struct IdRes { pub _id: ObjectId }
 
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Root { pub users: Vec<User> }
+pub struct Users { pub users: Vec<User> }
 
 
 #[derive(Debug, Serialize, Deserialize)]

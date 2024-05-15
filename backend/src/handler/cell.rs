@@ -1,7 +1,14 @@
 use log::error;
-use mongodb::bson::doc; 
-use mongodb::bson::{oid::ObjectId, from_document};
-use mongodb::options::AggregateOptions;
+use mongodb::bson::{
+    doc,
+    oid::ObjectId,
+    from_document
+};
+use mongodb::options::{
+    AggregateOptions,
+    FindOneAndUpdateOptions,
+    ReturnDocument,
+};
 use mongodb::Collection;
 use futures_util::TryStreamExt;
 
@@ -22,8 +29,8 @@ pub async fn create_cell(
 ) -> Result<Json<User>, StatusCode> {
     let filter = doc! {"_id": user_id};
     let update = doc! {"$push": {"cells": payload}};
-    let options = mongodb::options::FindOneAndUpdateOptions::builder()
-        .return_document(mongodb::options::ReturnDocument::After)
+    let options = FindOneAndUpdateOptions::builder()
+        .return_document(ReturnDocument::After)
         .build();
     match users.find_one_and_update(filter, update, options).await {
         Err(e) => {
@@ -79,14 +86,14 @@ pub async fn update_cell(
     Json(payload): Json<UpdateCellReq>
 ) -> Result<Json<User>, StatusCode> {
     let filter = doc! {"_id": user_id, "cells._id": cell_id};
-    let options = mongodb::options::FindOneAndUpdateOptions::builder()
-        .return_document(mongodb::options::ReturnDocument::After)
+    let options = FindOneAndUpdateOptions::builder()
+        .return_document(ReturnDocument::After)
         .build();
     let update = doc! {
         "$set": {
-            "cells.$.ancestor_ids": payload.ancestor_ids,
-            "cells.$.text": payload.text,
-            "cells.$.is_open": payload.is_open,
+            "cells.$.ancestor_ids": payload.ancestor_ids.unwrap(),
+            "cells.$.text": payload.text.unwrap(),
+            "cells.$.is_open": payload.is_open.unwrap(),
         }
     };
     match users.find_one_and_update(filter, update, options).await {
@@ -111,8 +118,8 @@ pub async fn delete_cell(
     State(users): State<Collection<User>>
 ) -> Result<Json<User>, StatusCode> {
     let filter = doc! {"_id": user_id};
-    let options = mongodb::options::FindOneAndUpdateOptions::builder()
-        .return_document(mongodb::options::ReturnDocument::After)
+    let options = FindOneAndUpdateOptions::builder()
+        .return_document(ReturnDocument::After)
         .build();
     let update = doc! {"$pull": {"cells": {"_id": cell_id}}};
     match users.find_one_and_update(filter, update, options).await {
