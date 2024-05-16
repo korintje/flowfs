@@ -1,19 +1,20 @@
 use serde::{Deserialize, Serialize};
 use mongodb::bson::{doc, oid::ObjectId};
+use sqlx::{FromRow};
 
 pub mod request;
 pub use request::*;
 
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, FromRow, Serialize, Deserialize)]
 pub struct IdRes { pub _id: ObjectId }
 
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, FromRow, Serialize, Deserialize)]
 pub struct Users { pub users: Vec<User> }
 
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, FromRow, Serialize, Deserialize)]
 pub struct User {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub _id:            Option<ObjectId>,
@@ -22,7 +23,7 @@ pub struct User {
     pub cells:          Vec<Cell>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(FromRow, Serialize, Deserialize, Debug)]
 pub struct Cell {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub _id:            Option<ObjectId>,
@@ -47,7 +48,7 @@ impl Into<mongodb::bson::Bson> for Cell {
 }
 
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, FromRow, Serialize, Deserialize)]
 pub struct Dir {
     pub name:           String,
     pub dirs:           Vec<Dir>,

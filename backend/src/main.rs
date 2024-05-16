@@ -34,19 +34,68 @@ async fn main() {
     let db = db_client.database("flowfs");
     let col: Collection<User> = db.collection("users");
 
+    // PostgreSQLクライアントのセットアップ
+    let db_url = utils::get_db_path();
+    let pool = sqlx::postgres::PgPoolOptions::new().max_connections(100).connect(&db_url).await.unwrap();
+    init_db(&pool).await;
+    // sqlx::migrate!().run(&pool).await.unwrap();
+
     // build our application with a single route
     let app = Router::new()
         .route("/", get(|| async { "Hello, World!" }))
-        .route("/users", get(list_users).post(create_user))
-        .route("/users/:user_id", get(show_user).put(update_user).delete(delete_user))
+        // .route("/users", get(list_users).post(create_user))
+        // .route("/users/:user_id", get(show_user).put(update_user).delete(delete_user))
         .route("/users/:user_id/cells/", post(create_cell))
-        .route("/users/:user_id/cells/:cell_id", get(show_cell).put(update_cell).delete(delete_cell))
-        .with_state(col);
+        // .route("/users/:user_id/cells/:cell_id", get(show_cell).put(update_cell).delete(delete_cell))
+        .with_state(pool);
 
     // run our app with hyper, listening globally on port 3000
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
 
+}
+
+
+async fn init_db(db: &sqlx::pool::Pool<sqlx::Postgres>) -> Result<(), sqlx::Error> {
+
+    let _r = sqlx::query(
+        "CREATE TABLE IF NOT EXISTS user (
+            user_id           INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT
+            , name            TEXT
+            , passhash        TEXT
+            , created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )"
+    )
+    .execute(db)
+    .await?;
+
+    println!("{:?}", _r);
+
+    let _r = sqlx::query(
+        "CREATE TABLE IF NOT EXISTS user (
+            user_id         INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT
+            , name          TEXT
+            , passhash      TEXT
+            , created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )"
+    )
+    .execute(db)
+    .await?;
+
+    let _r = sqlx::query(
+        "CREATE TABLE IF NOT EXISTS fileprop (
+            fileprop_id     INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT
+            , cell_id       INTEGER NOT NULL
+            , user_id       INTEGER NOT NULL    
+            , name          TEXT
+            , path          TEXT
+            , created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )"
+    )
+    .execute(db)
+    .await?;
+
+    Ok(())
 }
 
 
@@ -83,39 +132,5 @@ async fn main() {
                 println!("File uploaded with ID: {}", &uploaded_id);
                 response = serde_json::to_string(&UploadFileRes{uploaded_id}).unwrap();
             }
-            6 => {
-                let req: UpdateCellReq = serde_json::from_slice(body).unwrap();
-                let cells: Collection<Cell> = db.collection("cells");
-                let mut update_doc = doc! {};
-                if let Some(user_id) = req.user_id {
-                    update_doc.insert("user_id", user_id);
-                }
-                if let Some(device_id) = req.device_id {
-                    update_doc.insert("device_id", device_id);
-                }
-                if let Some(dir_ids) = req.dir_ids {
-                    update_doc.insert("dir_ids", dir_ids);
-                }
-                if let Some(fileprop_ids) = req.fileprop_ids {
-                    update_doc.insert("fileprop_ids", fileprop_ids);
-                }
-                if let Some(ancestor_ids) = req.ancestor_ids {
-                    update_doc.insert("ancestor_ids", ancestor_ids);
-                }
-                if let Some(text) = req.text {
-                    update_doc.insert("text", text);
-                }
-                if let Some(is_open) = req.is_open {
-                    update_doc.insert("is_open", is_open);
-                }
-                // idで指定されたドキュメントを更新します
-                let options = UpdateOptions::builder().upsert(false).build();
-                cells.update_one(
-                    doc! { "_id": req._id },
-                    doc! { "$set": update_doc },
-                    Some(options),
-                ).await.unwrap();
-            }
-            7 => { }
 
 */

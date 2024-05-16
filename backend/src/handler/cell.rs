@@ -21,6 +21,9 @@ use axum::{
     http::StatusCode,
 };
 
+use sqlx::pool;
+
+/*
 #[debug_handler]
 pub async fn create_cell(
     Path(user_id): Path<ObjectId>,
@@ -44,7 +47,20 @@ pub async fn create_cell(
         Ok(Some(user)) => Ok(Json(user))
     }
 }
+*/
 
+#[debug_handler]
+pub async fn create_cell(
+    Path(user_id): Path<i64>,
+    State(pool): State<sqlx::pool::Pool<sqlx::Postgres>>,
+    Json(payload): Json<Cell>
+) -> Result<Json<User>, StatusCode> {
+    let ra: Result<Cell, sqlx::Error> = sqlx::query_as("SELECT id, user_name, active FROM users WHERE id=$1")
+      .bind(user_id)
+      .fetch_one(&pool)
+      .await;
+    Err(StatusCode::INTERNAL_SERVER_ERROR)
+}
 
 #[debug_handler]
 pub async fn show_cell(
