@@ -21,7 +21,8 @@ use axum::{
     http::StatusCode,
 };
 
-use sqlx::pool;
+use sqlx::Postgres;
+use sqlx::pool::Pool;
 
 /*
 #[debug_handler]
@@ -52,16 +53,99 @@ pub async fn create_cell(
 #[debug_handler]
 pub async fn create_cell(
     Path(user_id): Path<i64>,
-    State(pool): State<sqlx::pool::Pool<sqlx::Postgres>>,
+    State(pool): State<Pool<Postgres>>,
     Json(payload): Json<Cell>
-) -> Result<Json<User>, StatusCode> {
-    let ra: Result<Cell, sqlx::Error> = sqlx::query_as("SELECT id, user_name, active FROM users WHERE id=$1")
-      .bind(user_id)
-      .fetch_one(&pool)
-      .await;
-    Err(StatusCode::INTERNAL_SERVER_ERROR)
+) -> Result<(), StatusCode> {
+    
+    let _id = payload._id;
+    let text = payload.text;
+    let device_id = payload.device_id;
+    let is_open = payload.is_open;
+
+    if let Err(e) = sqlx::query(
+      "INSERT INTO cells (device_id, text, is_open) 
+      VALUES ($1, $2, $3)"
+    )
+        .bind(user_id)
+        .bind(text)
+        .bind(device_id)
+        .bind(is_open)
+        .execute(&pool)
+        .await {
+            error!("{}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR)
+        };
+
+    // Prepare the query
+    let fileprops: Vec<FileProp> = payload.fileprops;
+    let mut query = "INSERT INTO fileprops (name, file_url, completed) VALUES ".to_owned();
+  
+    // Prepare the values placeholder string and parameter values
+    let mut params = Vec::new();
+    for (i, fileprop) in fileprops.iter().enumerate() {
+        if i > 0 {
+            query.push_str(", ");
+        }
+        query.push_str(&format!("(${}, ${}, ${})", i * 3 + 1, i * 3 + 2, i * 3 + 3));
+        params.push(fileprop.name.as_str());
+        params.push(fileprop.file_url.as_str());
+        params.push(if fileprop.completed {"1"} else {"0"});
+    }
+
+    // Execute the query with parameters
+    if let Err(e) = sqlx::query(&query)
+        .bind(params)
+        .execute(&pool)
+        .await {
+            error!("{}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR)
+        };
+
+    // Prepare the query
+    let ancestor_ids: Vec<i64> = payload.ancestor_ids;
+    let mut query = "INSERT INTO ancestor_ids (descendant_id, ancestor_id) VALUES ".to_owned();
+
+    // Prepare the values placeholder string and parameter values
+    let mut params = Vec::new();
+    for (i, ancestor_id) in ancestor_ids.into_iter().enumerate() {
+        if i > 0 {
+            query.push_str(", ");
+        }
+        query.push_str(&format!("(${}, ${})", i * 2 + 1, i * 2 + 2));
+        params.push(_id);
+        params.push(ancestor_id);
+    }
+
+    // Execute the query with parameters
+    if let Err(e) = sqlx::query(&query)
+        .bind(params)
+        .execute(&pool)
+        .await {
+            error!("{}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR)
+        };
+
+    Ok(())
 }
 
+#[debug_handler]
+pub async fn show_cell(
+    Path((user_id, cell_id)): Path<(i64, i64)>,
+    State(pool): State<Pool<Postgres>>,
+) -> Result<Json<Cells>, StatusCode> {
+    sqlx::query_as(
+        "SELECT cell_id, resource_id, resource_name, start, end, description, passhash, created_at 
+        FROM fileprops JOIN users ON (fileprops.user_id=users.user_id) JOIN cells ON (fileprops.cell_id=cells.cell_id) 
+        WHERE (cell_id=$1)"
+      )
+      .bind(cell_id)
+      .fetch_one(&pool)
+      .await
+      .map(|obj: Cell| Cell::from(obj))
+
+}
+
+/*
 #[debug_handler]
 pub async fn show_cell(
     Path((user_id, cell_id)): Path<(ObjectId, ObjectId)>,
@@ -93,7 +177,7 @@ pub async fn show_cell(
         }
     }
 }
-
+*/
 
 #[debug_handler]
 pub async fn update_cell(

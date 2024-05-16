@@ -59,8 +59,8 @@ async fn main() {
 async fn init_db(db: &sqlx::pool::Pool<sqlx::Postgres>) -> Result<(), sqlx::Error> {
 
     let _r = sqlx::query(
-        "CREATE TABLE IF NOT EXISTS user (
-            user_id           INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT
+        "CREATE TABLE IF NOT EXISTS users (
+            user_id           INTEGER NOT NULL PRIMARY KEY
             , name            TEXT
             , passhash        TEXT
             , created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -72,10 +72,11 @@ async fn init_db(db: &sqlx::pool::Pool<sqlx::Postgres>) -> Result<(), sqlx::Erro
     println!("{:?}", _r);
 
     let _r = sqlx::query(
-        "CREATE TABLE IF NOT EXISTS user (
-            user_id         INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT
-            , name          TEXT
-            , passhash      TEXT
+        "CREATE TABLE IF NOT EXISTS cells (
+            cell_id         INTEGER NOT NULL PRIMARY KEY
+            , device_id     TEXT
+            , text          TEXT
+            , is_open       BOOLEAN
             , created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )"
     )
@@ -83,13 +84,22 @@ async fn init_db(db: &sqlx::pool::Pool<sqlx::Postgres>) -> Result<(), sqlx::Erro
     .await?;
 
     let _r = sqlx::query(
-        "CREATE TABLE IF NOT EXISTS fileprop (
-            fileprop_id     INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT
-            , cell_id       INTEGER NOT NULL
-            , user_id       INTEGER NOT NULL    
+        "CREATE TABLE IF NOT EXISTS fileprops (
+            fileprop_id     INTEGER NOT NULL PRIMARY KEY
+            , user_id       INTEGER NOT NULL REFERENCES users(user_id),
+            , cell_id       INTEGER NOT NULL REFERENCES cells(cell_id),
             , name          TEXT
             , path          TEXT
             , created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )"
+    )
+    .execute(db)
+    .await?;
+
+    let _r = sqlx::query(
+        "CREATE TABLE IF NOT EXISTS ancestor_ids (
+            descendant_id     INTEGER NOT NULL REFERENCES cells(cell_id),
+            , ancestor_id     INTEGER NOT NULL REFERENCES cells(cell_id),
         )"
     )
     .execute(db)
