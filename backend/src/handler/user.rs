@@ -1,14 +1,4 @@
 use log::error;
-use mongodb::bson::{
-    doc,
-    oid::ObjectId
-};
-use mongodb::options::{
-    ReturnDocument,
-    FindOneOptions,
-    FindOneAndUpdateOptions
-};
-use mongodb::Collection;
 use futures_util::TryStreamExt;
 
 use crate::model::*;
@@ -20,39 +10,38 @@ use axum::{
     http::StatusCode,
 };
 
+use sqlx::Postgres;
+use sqlx::pool::Pool;
+
 #[debug_handler]
 pub async fn list_users(
-    State(users): State<Collection<User>>, 
+    State(pool): State<Pool<Postgres>>,
 ) -> Result<Json<Users>, StatusCode> {
-    let cursor = match users.find(doc!{}, None).await {
-        Ok(cursor) => cursor,
-        Err(e) => {
-            error!("{}", e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR)
+    match sqlx::query_as("SELECT _id, user_name, active FROM users")
+        .fetch_all(&pool)
+        .await {
+            Ok(users) => Ok(Json(Users{users})),
+            Err(e) => {
+                error!("{}", e);
+                Err(StatusCode::INTERNAL_SERVER_ERROR)
+            }
         }
-    };
-    let users: Vec<User> = cursor.try_collect().await.unwrap();
-    Ok(Json(Users{users}))
-}
+} 
 
 #[debug_handler]
 pub async fn create_user(
-    State(users): State<Collection<User>>, 
+    State(pool): State<Pool<Postgres>>,
     Json(payload): Json<User>
 ) -> Result<Json<IdRes>, StatusCode> {
-    match users.insert_one(&payload, None).await {
+    match sqlx::query("INSERT INTO users (user_name, active) VALUES ($1, $2) RETURNING id")
+      .bind(payload.user_name)
+      .bind(payload.passhash)
+      .fetch_all(&pool)
+      .await {
+        Ok(_) => Ok(Json(IdRes{id: uuid::Uuid::new_v4()})),
         Err(e) => {
             error!("{}", e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-        Ok(rt) => {
-            match rt.inserted_id.as_object_id() {
-                None => {
-                    error!("ID not found");
-                    Err(StatusCode::NOT_FOUND)             
-                },
-                Some(_id) => Ok(Json(IdRes{_id}))
-            }
         }
     }
 }
@@ -60,25 +49,22 @@ pub async fn create_user(
 
 #[debug_handler]
 pub async fn show_user(
-    Path(id): Path<ObjectId>,
-    State(users): State<Collection<User>>, 
+    Path(user_id): Path<uuid::Uuid>,
+    State(pool): State<Pool<Postgres>>,
 ) -> Result<Json<User>, StatusCode> {
-    let opts = FindOneOptions::builder()
-        .projection(doc!{"cells": 0})
-        .build();
-    match  users.find_one(doc!{"_id": id}, opts).await {
-        Ok(Some(user)) => Ok(Json(user)),
-        Ok(None) => {
-            error!("User not found");
-            Err(StatusCode::NOT_FOUND)
-        },
-        Err(e) => {
-            error!("{}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+    match sqlx::query_as("SELECT id, user_name, active FROM users WHERE id=$1")
+        .bind(user_id)
+        .fetch_one(&pool)
+        .await {
+            Ok(user) => Ok(Json(user)),
+            Err(e) => {
+                error!("{}", e);
+                Err(StatusCode::INTERNAL_SERVER_ERROR)
+            }
         }
-    }
 }
 
+/*
 #[debug_handler]
 pub async fn update_user(
     Path(id): Path<ObjectId>,
@@ -110,17 +96,21 @@ pub async fn update_user(
         }
     }
 }
+*/
 
 #[debug_handler]
 pub async fn delete_user(
-    Path(id): Path<ObjectId>,
-    State(users): State<Collection<User>>,
+    Path(user_id): Path<uuid::Uuid>,
+    State(pool): State<Pool<Postgres>>,
 ) -> Result<Json<IdRes>, StatusCode> {
-    match users.delete_one(doc! {"_id": id}, None).await {
-        Err(e) => {
-            error!("{}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        },
-        Ok(_r) => Ok(Json(IdRes{_id: id}))
-    }
+    match sqlx::query("DELETE FROM users WHERE id=$1")
+        .bind(user_id)
+        .execute(&pool)
+        .await {
+            Err(e) => {
+                error!("{}", e);
+                Err(StatusCode::NOT_FOUND)
+            }
+            Ok(_) => Ok(Json(IdRes{id: user_id})),
+        }
 }

@@ -1,15 +1,15 @@
 use std::env;
 use env_logger;
-use mongodb::Collection;
 
 mod utils;
 mod model;
 mod handler;
-use model::User;
+// use model::User;
 use handler::{
-    user::{list_users, create_user, show_user, update_user, delete_user},
-    cell::{create_cell, show_cell, update_cell, delete_cell},
-    // dir::{list_dirs, create_dir, show_dir, update_dir, delete_dir},
+    // user::{list_users, create_user, show_user, update_user, delete_user},
+    user::{list_users, create_user, show_user, delete_user},
+    // cell::{create_cell, show_cell, update_cell, delete_cell},
+    cell::{create_cell, show_cell, delete_cell},
 };
 
 use axum::{
@@ -27,13 +27,6 @@ async fn main() {
     let listen_url = utils::get_url();
     let addr = env::args().nth(1).unwrap_or_else(|| listen_url);
 
-    // MongoDBクライアントのセットアップ
-    // Ref: https://www.mongodb.com/docs/drivers/rust/current/quick-start/connect-to-mongodb/
-    let db_url = utils::get_db_path();
-    let db_client = mongodb::Client::with_uri_str(db_url).await.unwrap();
-    let db = db_client.database("flowfs");
-    let col: Collection<User> = db.collection("users");
-
     // PostgreSQLクライアントのセットアップ
     let db_url = utils::get_db_path();
     let pool = sqlx::postgres::PgPoolOptions::new().max_connections(100).connect(&db_url).await.unwrap();
@@ -43,9 +36,11 @@ async fn main() {
     // build our application with a single route
     let app = Router::new()
         .route("/", get(|| async { "Hello, World!" }))
-        // .route("/users", get(list_users).post(create_user))
+        .route("/users", get(list_users).post(create_user))
+        .route("/users/:user_id", get(show_user).delete(delete_user))
         // .route("/users/:user_id", get(show_user).put(update_user).delete(delete_user))
         .route("/users/:user_id/cells/", post(create_cell))
+        .route("/users/:user_id/cells/:cell_id", get(show_cell).delete(delete_cell))
         // .route("/users/:user_id/cells/:cell_id", get(show_cell).put(update_cell).delete(delete_cell))
         .with_state(pool);
 
@@ -60,9 +55,9 @@ async fn init_db(db: &sqlx::pool::Pool<sqlx::Postgres>) -> Result<(), sqlx::Erro
 
     let _r = sqlx::query(
         "CREATE TABLE IF NOT EXISTS users (
-            user_id           INTEGER NOT NULL PRIMARY KEY
-            , name            TEXT
-            , passhash        TEXT
+            user_id           UUID NOT NULL PRIMARY KEY
+            , user_name       TEXT NOT NULL
+            , passhash        TEXT NOT NULL
             , created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )"
     )
@@ -73,7 +68,7 @@ async fn init_db(db: &sqlx::pool::Pool<sqlx::Postgres>) -> Result<(), sqlx::Erro
 
     let _r = sqlx::query(
         "CREATE TABLE IF NOT EXISTS cells (
-            cell_id         INTEGER NOT NULL PRIMARY KEY
+            cell_id         UUID NOT NULL PRIMARY KEY
             , device_id     TEXT
             , text          TEXT
             , is_open       BOOLEAN
@@ -85,9 +80,9 @@ async fn init_db(db: &sqlx::pool::Pool<sqlx::Postgres>) -> Result<(), sqlx::Erro
 
     let _r = sqlx::query(
         "CREATE TABLE IF NOT EXISTS fileprops (
-            fileprop_id     INTEGER NOT NULL PRIMARY KEY
-            , user_id       INTEGER NOT NULL REFERENCES users(user_id),
-            , cell_id       INTEGER NOT NULL REFERENCES cells(cell_id),
+            fileprop_id     UUID NOT NULL PRIMARY KEY
+            , user_id       UUID NOT NULL REFERENCES users(user_id),
+            , cell_id       UUID NOT NULL REFERENCES cells(cell_id),
             , name          TEXT
             , path          TEXT
             , created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -98,8 +93,8 @@ async fn init_db(db: &sqlx::pool::Pool<sqlx::Postgres>) -> Result<(), sqlx::Erro
 
     let _r = sqlx::query(
         "CREATE TABLE IF NOT EXISTS ancestor_ids (
-            descendant_id     INTEGER NOT NULL REFERENCES cells(cell_id),
-            , ancestor_id     INTEGER NOT NULL REFERENCES cells(cell_id),
+            descendant_id     UUID NOT NULL REFERENCES cells(cell_id),
+            , ancestor_id     UUID NOT NULL REFERENCES cells(cell_id),
         )"
     )
     .execute(db)
