@@ -64,6 +64,23 @@ pub async fn show_user(
         }
 }
 
+#[debug_handler]
+pub async fn delete_user(
+    Path(user_id): Path<uuid::Uuid>,
+    State(pool): State<Pool<Postgres>>,
+) -> Result<Json<IdRes>, StatusCode> {
+    match sqlx::query("DELETE FROM users WHERE id=$1")
+        .bind(user_id)
+        .execute(&pool)
+        .await {
+            Err(e) => {
+                error!("{}", e);
+                Err(StatusCode::NOT_FOUND)
+            }
+            Ok(_) => Ok(Json(IdRes{id: user_id})),
+        }
+}
+
 /*
 #[debug_handler]
 pub async fn update_user(
@@ -97,20 +114,3 @@ pub async fn update_user(
     }
 }
 */
-
-#[debug_handler]
-pub async fn delete_user(
-    Path(user_id): Path<uuid::Uuid>,
-    State(pool): State<Pool<Postgres>>,
-) -> Result<Json<IdRes>, StatusCode> {
-    match sqlx::query("DELETE FROM users WHERE id=$1")
-        .bind(user_id)
-        .execute(&pool)
-        .await {
-            Err(e) => {
-                error!("{}", e);
-                Err(StatusCode::NOT_FOUND)
-            }
-            Ok(_) => Ok(Json(IdRes{id: user_id})),
-        }
-}

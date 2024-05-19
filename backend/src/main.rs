@@ -30,7 +30,7 @@ async fn main() {
     // PostgreSQLクライアントのセットアップ
     let db_url = utils::get_db_path();
     let pool = sqlx::postgres::PgPoolOptions::new().max_connections(100).connect(&db_url).await.unwrap();
-    init_db(&pool).await;
+    let _r = init_db(&pool).await.unwrap();
     // sqlx::migrate!().run(&pool).await.unwrap();
 
     // build our application with a single route
@@ -69,6 +69,7 @@ async fn init_db(db: &sqlx::pool::Pool<sqlx::Postgres>) -> Result<(), sqlx::Erro
     let _r = sqlx::query(
         "CREATE TABLE IF NOT EXISTS cells (
             cell_id         UUID NOT NULL PRIMARY KEY
+            , fileprops     jsonb
             , device_id     TEXT
             , text          TEXT
             , is_open       BOOLEAN
@@ -92,9 +93,9 @@ async fn init_db(db: &sqlx::pool::Pool<sqlx::Postgres>) -> Result<(), sqlx::Erro
     .await?;
 
     let _r = sqlx::query(
-        "CREATE TABLE IF NOT EXISTS ancestor_ids (
-            descendant_id     UUID NOT NULL REFERENCES cells(cell_id),
-            , ancestor_id     UUID NOT NULL REFERENCES cells(cell_id),
+        "CREATE TABLE IF NOT EXISTS family_tree (
+            child_id        UUID NOT NULL REFERENCES cells(cell_id),
+            , parent_id     UUID NOT NULL REFERENCES cells(cell_id),
         )"
     )
     .execute(db)
