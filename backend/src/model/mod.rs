@@ -90,6 +90,7 @@ pub struct FileProp {
     pub completed:      bool,
 }
 
+/*
 #[derive(FromRow, Serialize, Deserialize, Debug)]
 pub struct Parent {
     pub parent_id:    uuid::Uuid,
@@ -99,3 +100,4 @@ pub struct Parent {
 pub struct Child {
     pub child_id:    uuid::Uuid,
 }
+*/

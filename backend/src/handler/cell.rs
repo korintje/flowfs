@@ -17,7 +17,7 @@ pub async fn list_cells(
     State(pool): State<Pool<Postgres>>,
     Json(payload): Json<CellFilter>,
 ) -> Result<Json<Cells>, StatusCode> {
-    let id_cells: Vec<IdRes> = match sqlx::query_as("SELECT cell_id FROM cells WHERE user_id=$1")
+    let id_cells: Vec<IdRes> = match sqlx::query_as("SELECT cell_id AS id FROM cells WHERE user_id=$1")
         .bind(payload.user_id).fetch_all(&pool).await {
             Ok(cells) =>cells,
             Err(e) => {
@@ -172,10 +172,10 @@ async fn get_child_ids(
     cell_id: uuid::Uuid,
     pool: &Pool<Postgres>,  
 ) -> Result<Vec<uuid::Uuid>, sqlx::Error> {
-    let child_ids: Vec<Child> = sqlx::query_as(
-        "SELECT child_id FROM family_tree WHERE parent_id=$1"
+    let child_ids: Vec<IdRes> = sqlx::query_as(
+        "SELECT child_id As id FROM family_tree WHERE parent_id=$1"
     ).bind(cell_id).fetch_all(pool).await?;
-    let child_ids = child_ids.into_iter().map(|row: Child| row.child_id).collect();
+    let child_ids = child_ids.into_iter().map(|row: IdRes| row.id).collect();
     Ok(child_ids)
 }
 
@@ -183,10 +183,10 @@ async fn get_parent_ids(
     cell_id: uuid::Uuid,
     pool: &Pool<Postgres>,  
 ) -> Result<Vec<uuid::Uuid>, sqlx::Error> {
-    let parent_ids: Vec<Parent> = sqlx::query_as(
-        "SELECT parent_id FROM family_tree WHERE child_id=$1"
+    let parent_ids: Vec<IdRes> = sqlx::query_as(
+        "SELECT parent_id As id FROM family_tree WHERE child_id=$1"
     ).bind(cell_id).fetch_all(pool).await?;
-    let parent_ids = parent_ids.into_iter().map(|row: Parent| row.parent_id).collect();
+    let parent_ids = parent_ids.into_iter().map(|row: IdRes| row.id).collect();
     Ok(parent_ids)
 }
 

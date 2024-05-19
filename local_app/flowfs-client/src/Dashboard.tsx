@@ -81,10 +81,11 @@ export default function Dashboard() {
 
   /*
   const [cells, setCells] = React.useState<SlackMessageProps[]>();
-  invoke('load_cells').then((cs) => setCells(cs));
   */
 
   const [open, setOpen] = React.useState(true);
+  const [cells, setCells] = React.useState();
+  invoke('load_cells').then((cs) => setCells(cs));
   const toggleDrawer = () => { setOpen(!open); };
 
   const slack_messages = [

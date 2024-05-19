@@ -1,63 +1,62 @@
-// use sqlx::FromRow;
 use serde::{Deserialize, Serialize};
-use mongodb::bson::{doc, oid::ObjectId};
 
-pub mod request;
-pub use request::*;
+#[derive(Serialize, Deserialize, Debug)]
+pub struct IdRes { pub id: uuid::Uuid }
 
-pub mod response;
-pub use response::*;
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Users { pub users: Vec<UserRes> }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Device {
-    pub _id:            [u8; 6],
-    pub name:           String,
-}
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct User {
-    pub _id:            ObjectId,
-    pub name:           String,
+    pub user_id:        uuid::Uuid,
+    pub user_name:      String,
     pub passhash:       String,
-    pub device_ids:     Vec<[u8;6]>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Cell {
-    pub _id:            ObjectId,
-    pub user_id:        ObjectId,
-    pub device_id:      ObjectId,
-    pub dir_ids:        Vec<ObjectId>,
-    pub fileprop_ids:   Vec<ObjectId>,
-    pub ancestor_ids:   Vec<ObjectId>,
+#[derive(Serialize, Deserialize, Debug)]
+pub struct UserRes {
+    pub user_id:        uuid::Uuid,
+    pub user_name:      String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Cells {
+    pub cells:          Vec<CellExtracted>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CellReq {
+    pub cell_id:        uuid::Uuid,
+    pub user_id:        uuid::Uuid,
+    pub device_id:      String,
     pub text:           String,
-    pub open_with:      Option<ObjectId>,
+    pub is_open:        bool,
+    pub fileprops:      Vec<FileProp>,
+    pub parent_ids:     Vec<uuid::Uuid>,
+    pub child_ids:      Vec<uuid::Uuid>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Directory {
-    pub _id:            ObjectId,
-    pub user_id:        ObjectId,
-    pub name:           String,
-    pub dir_ids:        Vec<ObjectId>,
-    pub fileprop_ids:   Vec<ObjectId>,
-    pub parent_id:      Option<ObjectId>,
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CellExtracted {
+    pub cell_id:        uuid::Uuid,
+    pub user_id:        uuid::Uuid,
+    pub device_id:      String,
+    pub text:           String,
+    pub is_open:        bool,
+    pub fileprops:      Vec<FileProp>,
+    pub parents:        Vec<CellExtracted>,
+    pub children:       Vec<CellExtracted>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CellFilter {
+    pub user_id:        uuid::Uuid,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct FileProp {
-    pub _id:            ObjectId,
-    pub user_id:        ObjectId,
-    pub name:           String,
-    pub blob_id:        ObjectId,
+    pub path:           String,
+    pub url:            String,
     pub completed:      bool,
-    pub parent_id:      Option<ObjectId>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct FileBlob {
-    pub _id:            ObjectId,
-    pub user_id:        ObjectId,
-    pub file_name:      String,
-    pub blob:           Vec<u8>,
 }
