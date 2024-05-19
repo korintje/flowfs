@@ -157,7 +157,7 @@ pub async fn show_cell(
 }
 
 pub async fn delete_cell(
-    Path(cell_id): Path<(uuid::Uuid)>,
+    Path(cell_id): Path<uuid::Uuid>,
     State(pool): State<Pool<Postgres>>,
 ) -> Result<Json<IdRes>, StatusCode> {
     match sqlx::query("DELETE FROM cells WHERE id=$1")
