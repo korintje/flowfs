@@ -32,10 +32,10 @@ pub struct CellReq {
     pub user_id:        uuid::Uuid,
     pub device_id:      String,
     pub text:           String,
+    pub is_open:        bool,
     pub fileprops:      Vec<FileProp>,
     pub parent_ids:     Vec<uuid::Uuid>,
     pub child_ids:      Vec<uuid::Uuid>,
-    pub is_open:        bool,
 }
 
 #[derive(FromRow, Serialize, Deserialize, Debug)]
@@ -43,11 +43,11 @@ pub struct CellExtracted {
     pub cell_id:        uuid::Uuid,
     pub user_id:        uuid::Uuid,
     pub device_id:      String,
+    pub text:           String,
+    pub is_open:        bool,
     pub fileprops:      Vec<FileProp>,
     pub parents:        Vec<CellExtracted>,
     pub children:       Vec<CellExtracted>,
-    pub text:           String,
-    pub is_open:        bool,
 }
 
 impl CellExtracted {
@@ -73,10 +73,10 @@ impl CellExtracted {
 pub struct CellRow {
     pub cell_id:        uuid::Uuid,
     pub user_id:        uuid::Uuid,
-    pub fileprops:      sqlx::types::Json<Vec<FileProp>>,
-    pub text:           String,
     pub device_id:      String,
+    pub text:           String,
     pub is_open:        bool,
+    pub fileprops:      sqlx::types::Json<Vec<FileProp>>,
 }
 #[derive(FromRow, Serialize, Deserialize, Debug)]
 pub struct CellFilter {
