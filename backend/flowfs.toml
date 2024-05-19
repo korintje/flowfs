@@ -1,2 +1,2 @@
 web_url = "127.0.0.1:8080"
-db_path = "mongodb://localhost:27017"
+db_path = "postgres://korintje:password@localhost/flowfs"

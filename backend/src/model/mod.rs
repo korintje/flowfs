@@ -5,7 +5,7 @@ use sqlx::FromRow;
 pub struct IdRes { pub id: uuid::Uuid }
 
 #[derive(FromRow, Serialize, Deserialize, Debug)]
-pub struct Users { pub users: Vec<User> }
+pub struct Users { pub users: Vec<UserRes> }
 
 
 #[derive(FromRow, Serialize, Deserialize, Debug)]
@@ -13,6 +13,12 @@ pub struct User {
     pub user_id:        uuid::Uuid,
     pub user_name:      String,
     pub passhash:       String,
+}
+
+#[derive(FromRow, Serialize, Deserialize, Debug)]
+pub struct UserRes {
+    pub user_id:        uuid::Uuid,
+    pub user_name:      String,
 }
 
 #[derive(FromRow, Serialize, Deserialize, Debug)]
@@ -26,7 +32,7 @@ pub struct CellReq {
     pub user_id:        uuid::Uuid,
     pub device_id:      String,
     pub text:           String,
-    pub fileprops:      FileProp,
+    pub fileprops:      Vec<FileProp>,
     pub parent_ids:     Vec<uuid::Uuid>,
     pub child_ids:      Vec<uuid::Uuid>,
     pub is_open:        bool,
@@ -56,7 +62,7 @@ impl CellExtracted {
             device_id: cell_row.device_id,
             text: cell_row.text,
             is_open: cell_row.is_open,
-            fileprops: cell_row.fileprops.into_iter().map(|x|x.0).collect(),
+            fileprops: cell_row.fileprops.0,
             parents: parent_cells,
             children: child_cells,
         }
@@ -67,7 +73,7 @@ impl CellExtracted {
 pub struct CellRow {
     pub cell_id:        uuid::Uuid,
     pub user_id:        uuid::Uuid,
-    pub fileprops:      Vec<sqlx::types::Json<FileProp>>,
+    pub fileprops:      sqlx::types::Json<Vec<FileProp>>,
     pub text:           String,
     pub device_id:      String,
     pub is_open:        bool,
@@ -79,10 +85,8 @@ pub struct CellFilter {
 
 #[derive(FromRow, Serialize, Deserialize, Debug)]
 pub struct FileProp {
-    pub fileprop_id:    uuid::Uuid,
-    pub name:           String,
     pub path:           String,
-    pub file_url:       String,
+    pub url:            String,
     pub completed:      bool,
 }
 

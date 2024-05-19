@@ -28,10 +28,10 @@ pub async fn list_cells(
         };
     let mut cells = vec![];
     for id_cell in id_cells.into_iter() {
-        let Some(mut cell_with_children) = make_child_tree(&id_cell.id, &pool).await else {
+        let Some(mut cell_with_children) = make_child_tree(id_cell.id, &pool).await else {
             return Err(StatusCode::NOT_FOUND)
         };
-        let Some(cell_with_parents) = make_parent_tree(&id_cell.id, &pool).await else {
+        let Some(cell_with_parents) = make_parent_tree(id_cell.id, &pool).await else {
             return Err(StatusCode::NOT_FOUND)
         };
         cell_with_children.parents = cell_with_parents.parents;
@@ -65,37 +65,20 @@ pub async fn create_cell(
         };
 
     // Prepare the query
-    let mut query = "INSERT INTO family_tree (child_id, parent_id) VALUES ".to_string();
-    let mut params = Vec::new();
-    let mut count: u32 = 1;
-    for (i, parent_id) in parent_ids.into_iter().enumerate() {
-        if i > 0 {
-            query.push_str(", ");
-        }
-        query.push_str(&format!("(${}, ${})", count, count + 1));
-        count += 2;
-        params.push(cell_id);
-        params.push(parent_id);
-    }
-    for (i, child_id) in child_ids.into_iter().enumerate() {
-        if i > 0 {
-            query.push_str(", ");
-        }
-        query.push_str(&format!("(${}, ${})", count, count + 1));
-        count += 2;
-        params.push(child_id);
-        params.push(cell_id);
-    }
-    println!("{:?}", &query);
-    println!("{:?}", &params);
-    if let Err(e) = sqlx::query(&query)
-        .bind(params)
+    let query = "INSERT INTO family_tree (child_id, parent_id) SELECT * FROM UNNEST($1::uuid[], $2::uuid[])".to_string();
+    let child_count = child_ids.len();
+    let all_child_ids = [vec![cell_id; parent_ids.len()], child_ids].concat();
+    let all_parent_ids = [parent_ids, vec![cell_id; child_count]].concat();
+    if !all_child_ids.is_empty() {
+        if let Err(e) = sqlx::query(&query)
+        .bind(all_child_ids)
+        .bind(all_parent_ids)
         .execute(&pool)
         .await {
             error!("{}", e);
             return Err(StatusCode::INTERNAL_SERVER_ERROR)
         };
-
+    }
     Ok(Json(IdRes{id: cell_id}))
 }
 
@@ -104,10 +87,10 @@ pub async fn show_cell(
     Path(cell_id): Path<uuid::Uuid>,
     State(pool): State<Pool<Postgres>>,
 ) -> Result<Json<CellExtracted>, StatusCode> {
-    let Some(mut cell_with_children) = make_child_tree(&cell_id, &pool).await else {
+    let Some(mut cell_with_children) = make_child_tree(cell_id, &pool).await else {
         return Err(StatusCode::NOT_FOUND)
     };
-    let Some(cell_with_parents) = make_parent_tree(&cell_id, &pool).await else {
+    let Some(cell_with_parents) = make_parent_tree(cell_id, &pool).await else {
         return Err(StatusCode::NOT_FOUND)
     };
     cell_with_children.parents = cell_with_parents.parents;
@@ -118,7 +101,7 @@ pub async fn delete_cell(
     Path(cell_id): Path<uuid::Uuid>,
     State(pool): State<Pool<Postgres>>,
 ) -> Result<Json<IdRes>, StatusCode> {
-    match sqlx::query("DELETE FROM cells WHERE id=$1")
+    match sqlx::query("DELETE FROM cells WHERE cell_id=$1")
     .bind(cell_id)
     .execute(&pool)
     .await {
@@ -169,27 +152,35 @@ pub async fn update_cell(
 
 
 async fn get_cell(
-    cell_id: &uuid::Uuid,
+    cell_id: uuid::Uuid,
     pool: &Pool<Postgres>,
 ) -> Result<CellRow, sqlx::Error> {
-    sqlx::query_as(
+    match sqlx::query_as(
         "SELECT * FROM cells WHERE cell_id=$1"
-    ).bind(cell_id).fetch_one(pool).await
+    )
+    .bind(cell_id)
+    .fetch_one(pool).await {
+        Ok(cell) => Ok(cell),
+        Err(e) => {
+            error!("{}", e);
+            Err(e)
+        }
+    }
 }
 
 async fn get_child_ids(
-    cell_id: &uuid::Uuid,
+    cell_id: uuid::Uuid,
     pool: &Pool<Postgres>,  
 ) -> Result<Vec<uuid::Uuid>, sqlx::Error> {
     let child_ids: Vec<Child> = sqlx::query_as(
-        "SELECT child_id FROM family_tree WHERE paret_id=$1"
+        "SELECT child_id FROM family_tree WHERE parent_id=$1"
     ).bind(cell_id).fetch_all(pool).await?;
     let child_ids = child_ids.into_iter().map(|row: Child| row.child_id).collect();
     Ok(child_ids)
 }
 
 async fn get_parent_ids(
-    cell_id: &uuid::Uuid,
+    cell_id: uuid::Uuid,
     pool: &Pool<Postgres>,  
 ) -> Result<Vec<uuid::Uuid>, sqlx::Error> {
     let parent_ids: Vec<Parent> = sqlx::query_as(
@@ -201,7 +192,7 @@ async fn get_parent_ids(
 
 #[async_recursion]
 async fn make_child_tree(
-    cell_id: &uuid::Uuid,
+    cell_id: uuid::Uuid,
     pool: &Pool<Postgres>,
 ) -> Option<CellExtracted> {
     let Ok(cell) = get_cell(cell_id, pool).await else {
@@ -211,7 +202,7 @@ async fn make_child_tree(
     let mut cell_ext = CellExtracted::from_cell_row(
         cell, vec![], vec![],
     );
-    for child_id in child_ids.iter() {
+    for child_id in child_ids.into_iter() {
         if let Some(c) = make_child_tree(child_id, pool).await {
             cell_ext.children.push(c);
         }
@@ -221,7 +212,7 @@ async fn make_child_tree(
 
 #[async_recursion]
 async fn make_parent_tree(
-    cell_id: &uuid::Uuid,
+    cell_id: uuid::Uuid,
     pool: &Pool<Postgres>,
 ) -> Option<CellExtracted> {
     let Ok(cell) = get_cell(cell_id, pool).await else {
@@ -231,7 +222,7 @@ async fn make_parent_tree(
     let mut cell_ext = CellExtracted::from_cell_row(
         cell, vec![], vec![],
     );
-    for parent_id in parent_ids.iter() {
+    for parent_id in parent_ids.into_iter() {
         if let Some(c) = make_parent_tree(parent_id, pool).await {
             cell_ext.parents.push(c);
         }

@@ -16,7 +16,7 @@ use sqlx::pool::Pool;
 pub async fn list_users(
     State(pool): State<Pool<Postgres>>,
 ) -> Result<Json<Users>, StatusCode> {
-    match sqlx::query_as("SELECT * FROM users")
+    match sqlx::query_as("SELECT user_id, user_name FROM users")
         .fetch_all(&pool)
         .await {
             Ok(users) => Ok(Json(Users{users})),
@@ -41,7 +41,7 @@ pub async fn create_user(
         Ok(_) => Ok(Json(IdRes{id: payload.user_id})),
         Err(e) => {
             error!("{}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(StatusCode::BAD_REQUEST)
         }
     }
 }
@@ -50,15 +50,15 @@ pub async fn create_user(
 pub async fn show_user(
     Path(user_id): Path<uuid::Uuid>,
     State(pool): State<Pool<Postgres>>,
-) -> Result<Json<User>, StatusCode> {
-    match sqlx::query_as("SELECT * FROM users WHERE id=$1")
+) -> Result<Json<UserRes>, StatusCode> {
+    match sqlx::query_as("SELECT user_id, user_name FROM users WHERE user_id=$1")
         .bind(user_id)
         .fetch_one(&pool)
         .await {
             Ok(user) => Ok(Json(user)),
             Err(e) => {
                 error!("{}", e);
-                Err(StatusCode::INTERNAL_SERVER_ERROR)
+                Err(StatusCode::NOT_FOUND)
             }
         }
 }
@@ -68,7 +68,7 @@ pub async fn delete_user(
     Path(user_id): Path<uuid::Uuid>,
     State(pool): State<Pool<Postgres>>,
 ) -> Result<Json<IdRes>, StatusCode> {
-    match sqlx::query("DELETE FROM users WHERE id=$1")
+    match sqlx::query("DELETE FROM users WHERE user_id=$1")
         .bind(user_id)
         .execute(&pool)
         .await {

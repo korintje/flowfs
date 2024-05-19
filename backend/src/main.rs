@@ -17,6 +17,8 @@ use axum::{
     Router,
 };
 
+use sqlx::postgres::PgPoolOptions;
+
 #[tokio::main]
 async fn main() {
 
@@ -29,7 +31,7 @@ async fn main() {
 
     // Setup PostgreSQL client
     let db_url = utils::get_db_path();
-    let pool = sqlx::postgres::PgPoolOptions::new().max_connections(100).connect(&db_url).await.unwrap();
+    let pool = PgPoolOptions::new().max_connections(16).connect(&db_url).await.unwrap();
     let _r = init_db(&pool).await.unwrap();
 
     // build our application with a single route
@@ -38,7 +40,7 @@ async fn main() {
         .route("/users", get(list_users).post(create_user))
         .route("/users/:user_id", get(show_user).delete(delete_user))
         // .route("/users/:user_id", get(show_user).put(update_user).delete(delete_user))
-        .route("/cells/", get(list_cells).post(create_cell))
+        .route("/cells", get(list_cells).post(create_cell))
         .route("/cells/:cell_id", get(show_cell).delete(delete_cell))
         // .route("/users/:user_id/cells/:cell_id", get(show_cell).put(update_cell).delete(delete_cell))
         .with_state(pool);
@@ -57,7 +59,7 @@ async fn init_db(db: &sqlx::pool::Pool<sqlx::Postgres>) -> Result<(), sqlx::Erro
             user_id           UUID NOT NULL PRIMARY KEY
             , user_name       TEXT NOT NULL
             , passhash        TEXT NOT NULL
-            , created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            , created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         )"
     )
     .execute(db)
@@ -68,25 +70,29 @@ async fn init_db(db: &sqlx::pool::Pool<sqlx::Postgres>) -> Result<(), sqlx::Erro
     let _r = sqlx::query(
         "CREATE TABLE IF NOT EXISTS cells (
             cell_id         UUID NOT NULL PRIMARY KEY
-            , user_id       UUID NOT NULL REFERENCES users(user_id),
-            , device_id     TEXT
-            , text          TEXT
-            , fileprops     jsonb
-            , is_open       BOOLEAN
-            , created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            , user_id       UUID NOT NULL REFERENCES users(user_id)
+            , device_id     TEXT NOT NULL
+            , text          TEXT NOT NULL
+            , fileprops     jsonb NOT NULL
+            , is_open       BOOLEAN NOT NULL
+            , created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         )"
     )
     .execute(db)
     .await?;
 
+    println!("{:?}", _r);
+
     let _r = sqlx::query(
         "CREATE TABLE IF NOT EXISTS family_tree (
-            child_id        UUID NOT NULL REFERENCES cells(cell_id),
-            , parent_id     UUID NOT NULL REFERENCES cells(cell_id),
+            child_id        UUID NOT NULL REFERENCES cells(cell_id)
+            , parent_id     UUID NOT NULL REFERENCES cells(cell_id)
         )"
     )
     .execute(db)
     .await?;
+
+    println!("{:?}", _r);
 
     Ok(())
 }
