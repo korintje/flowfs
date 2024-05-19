@@ -16,7 +16,7 @@ use sqlx::pool::Pool;
 pub async fn list_users(
     State(pool): State<Pool<Postgres>>,
 ) -> Result<Json<Users>, StatusCode> {
-    match sqlx::query_as("SELECT _id, user_name, active FROM users")
+    match sqlx::query_as("SELECT * FROM users")
         .fetch_all(&pool)
         .await {
             Ok(users) => Ok(Json(Users{users})),
@@ -32,12 +32,13 @@ pub async fn create_user(
     State(pool): State<Pool<Postgres>>,
     Json(payload): Json<User>
 ) -> Result<Json<IdRes>, StatusCode> {
-    match sqlx::query("INSERT INTO users (user_name, active) VALUES ($1, $2) RETURNING id")
+    match sqlx::query("INSERT INTO users (user_id, user_name, passhash) VALUES ($1, $2, $3)")
+      .bind(payload.user_id)
       .bind(payload.user_name)
       .bind(payload.passhash)
       .fetch_all(&pool)
       .await {
-        Ok(_) => Ok(Json(IdRes{id: uuid::Uuid::new_v4()})),
+        Ok(_) => Ok(Json(IdRes{id: payload.user_id})),
         Err(e) => {
             error!("{}", e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
@@ -45,13 +46,12 @@ pub async fn create_user(
     }
 }
 
-
 #[debug_handler]
 pub async fn show_user(
     Path(user_id): Path<uuid::Uuid>,
     State(pool): State<Pool<Postgres>>,
 ) -> Result<Json<User>, StatusCode> {
-    match sqlx::query_as("SELECT id, user_name, active FROM users WHERE id=$1")
+    match sqlx::query_as("SELECT * FROM users WHERE id=$1")
         .bind(user_id)
         .fetch_one(&pool)
         .await {

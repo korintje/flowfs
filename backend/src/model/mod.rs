@@ -1,10 +1,5 @@
-// use std::cell::{self, Cell};
 use serde::{Deserialize, Serialize};
-// use mongodb::bson::{doc, oid::ObjectId};
 use sqlx::FromRow;
-
-// pub mod request;
-// pub use request::*;
 
 #[derive(FromRow, Serialize, Deserialize, Debug)]
 pub struct IdRes { pub id: uuid::Uuid }
@@ -31,7 +26,7 @@ pub struct CellReq {
     pub user_id:        uuid::Uuid,
     pub device_id:      String,
     pub text:           String,
-    pub fileprops:      sqlx::types::Json<FileProp>,
+    pub fileprops:      FileProp,
     pub parent_ids:     Vec<uuid::Uuid>,
     pub child_ids:      Vec<uuid::Uuid>,
     pub is_open:        bool,
@@ -76,6 +71,10 @@ pub struct CellRow {
     pub text:           String,
     pub device_id:      String,
     pub is_open:        bool,
+}
+#[derive(FromRow, Serialize, Deserialize, Debug)]
+pub struct CellFilter {
+    pub user_id:        uuid::Uuid,
 }
 
 #[derive(FromRow, Serialize, Deserialize, Debug)]

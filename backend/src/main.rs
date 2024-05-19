@@ -4,16 +4,16 @@ use env_logger;
 mod utils;
 mod model;
 mod handler;
-// use model::User;
+
 use handler::{
     // user::{list_users, create_user, show_user, update_user, delete_user},
     user::{list_users, create_user, show_user, delete_user},
     // cell::{create_cell, show_cell, update_cell, delete_cell},
-    cell::{create_cell, show_cell, delete_cell},
+    cell::{list_cells, create_cell, show_cell, delete_cell},
 };
 
 use axum::{
-    routing::{get, post},
+    routing::get,
     Router,
 };
 
@@ -27,11 +27,10 @@ async fn main() {
     let listen_url = utils::get_url();
     let addr = env::args().nth(1).unwrap_or_else(|| listen_url);
 
-    // PostgreSQLクライアントのセットアップ
+    // Setup PostgreSQL client
     let db_url = utils::get_db_path();
     let pool = sqlx::postgres::PgPoolOptions::new().max_connections(100).connect(&db_url).await.unwrap();
     let _r = init_db(&pool).await.unwrap();
-    // sqlx::migrate!().run(&pool).await.unwrap();
 
     // build our application with a single route
     let app = Router::new()
@@ -39,8 +38,8 @@ async fn main() {
         .route("/users", get(list_users).post(create_user))
         .route("/users/:user_id", get(show_user).delete(delete_user))
         // .route("/users/:user_id", get(show_user).put(update_user).delete(delete_user))
-        .route("/users/:user_id/cells/", post(create_cell))
-        .route("/users/:user_id/cells/:cell_id", get(show_cell).delete(delete_cell))
+        .route("/cells/", get(list_cells).post(create_cell))
+        .route("/cells/:cell_id", get(show_cell).delete(delete_cell))
         // .route("/users/:user_id/cells/:cell_id", get(show_cell).put(update_cell).delete(delete_cell))
         .with_state(pool);
 
@@ -69,23 +68,11 @@ async fn init_db(db: &sqlx::pool::Pool<sqlx::Postgres>) -> Result<(), sqlx::Erro
     let _r = sqlx::query(
         "CREATE TABLE IF NOT EXISTS cells (
             cell_id         UUID NOT NULL PRIMARY KEY
-            , fileprops     jsonb
+            , user_id       UUID NOT NULL REFERENCES users(user_id),
             , device_id     TEXT
             , text          TEXT
+            , fileprops     jsonb
             , is_open       BOOLEAN
-            , created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )"
-    )
-    .execute(db)
-    .await?;
-
-    let _r = sqlx::query(
-        "CREATE TABLE IF NOT EXISTS fileprops (
-            fileprop_id     UUID NOT NULL PRIMARY KEY
-            , user_id       UUID NOT NULL REFERENCES users(user_id),
-            , cell_id       UUID NOT NULL REFERENCES cells(cell_id),
-            , name          TEXT
-            , path          TEXT
             , created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )"
     )
