@@ -1,31 +1,33 @@
+use specta::Type;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug)]
+
+#[derive(Serialize, Deserialize, Type, Debug)]
 pub struct IdRes { pub id: uuid::Uuid }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Type, Debug)]
 pub struct Users { pub users: Vec<UserRes> }
 
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Type, Debug)]
 pub struct User {
     pub user_id:        uuid::Uuid,
     pub user_name:      String,
     pub passhash:       String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Type, Debug)]
 pub struct UserRes {
     pub user_id:        uuid::Uuid,
     pub user_name:      String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Type, Debug)]
 pub struct Cells {
     pub cells:          Vec<CellExtracted>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Type, Debug)]
 pub struct CellReq {
     pub cell_id:        uuid::Uuid,
     pub user_id:        uuid::Uuid,
@@ -37,7 +39,7 @@ pub struct CellReq {
     pub child_ids:      Vec<uuid::Uuid>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Type, Debug)]
 pub struct CellExtracted {
     pub cell_id:        uuid::Uuid,
     pub user_id:        uuid::Uuid,
@@ -49,12 +51,12 @@ pub struct CellExtracted {
     pub children:       Vec<CellExtracted>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Type, Debug)]
 pub struct CellFilter {
     pub user_id:        uuid::Uuid,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Type, Debug)]
 pub struct FileProp {
     pub path:           String,
     pub url:            String,

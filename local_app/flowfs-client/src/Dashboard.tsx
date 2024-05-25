@@ -18,8 +18,8 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import { mainListItems, secondaryListItems } from './listItems';
 
 import { invoke } from '@tauri-apps/api/tauri';
-import MessageGrid from './MessageGrid';
-import { SlackMessageProps } from './SlackMessage';
+import { CellsGrid, CellsProps } from './Cells';
+// import * as commands from "./bindings";
 
 // const invoke = window.__TAURI__.invoke;
 // invoke('my_custom_command');
@@ -74,67 +74,91 @@ const Drawer = styled(MuiDrawer, { shouldForwardProp: (prop) => prop !== 'open' 
   }),
 );
 
+interface FileProp {
+  path: string;
+  url: string;
+  completed: boolean;
+}
+
+interface CellReq {
+  cell_id: string;
+  user_id: string;
+  device_id: string;
+  text: string;
+  is_open: boolean;
+  fileprops: FileProp[];
+  parent_ids: string[];
+  child_ids: string[];
+}
+
+interface CellExtracted {
+  cell_id: string;
+  user_id: string;
+  device_id: string;
+  text: string;
+  is_open: boolean;
+  fileprops: FileProp[];
+  parents: CellExtracted[];
+  children: CellExtracted[];
+}
+
+interface Cells {
+  cells: CellExtracted[];
+}
+
+function get_cells(url: string): Promise<Cells> {
+  url = 'http://localhost/cells'
+  try {
+    const response = await fetch(url, {
+      method: 'GET'
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+    const responseData = await response.json();
+    return responseData as Cells;
+  } catch (error) {
+    // エラーハンドリング
+    console.error('Error occurred while posting cell data:', error);
+    throw error;
+  }
+}
+
+/*
+async function get_cells(data: CellReq): Promise<CellExtracted> {
+  try {
+    const response = await fetch('http://localhost/cells', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+
+    const responseData = await response.json();
+    return responseData as CellExtracted;
+  } catch (error) {
+    // エラーハンドリング
+    console.error('Error occurred while posting cell data:', error);
+    throw error;
+  }
+}
+*/
+
 // TODO remove, this demo shouldn't need to reset the theme.
 const defaultTheme = createTheme();
 
 export default function Dashboard() {
 
-  /*
-  const [cells, setCells] = React.useState<SlackMessageProps[]>();
-  */
-
+  const [cells, setCells] = React.useState<Cells>();
   const [open, setOpen] = React.useState(true);
-  const [cells, setCells] = React.useState();
-  invoke('load_cells').then((cs) => setCells(cs));
-  const toggleDrawer = () => { setOpen(!open); };
 
-  const slack_messages = [
-    {
-      userAvatar: '',
-      userName: 'Suzuki',
-      messageText: "Hello world!: unable to create directory '/run/user/1000/dconf': Permission denied. dconf will not work properly.",
-      attachedFile: {
-        name: "Attachments",
-        files: [
-          { name: "file1.jpg", url: "https://storage.googleapis.com/zenn-user-upload/avatar/58e5499c30.jpeg" },
-          { name: "file2.png", url: "https://static.zenn.studio/images/empty/user-content.png" }
-        ],
-        dirs: [
-          {
-            name: "Attachments2",
-            files: [
-              { name: "shoro.pdf", url: "https://www.jstage.jst.go.jp/article/jila/81/5/81_577/_pdf" },
-              { name: "file2.png", url: "https://static.zenn.studio/images/empty/user-content.png" }
-            ],
-            dirs: [],
-          }
-        ],
-      },
-    },
-    // 他のメッセージも追加できます
-    {
-      userAvatar: '',
-      userName: 'Suzuki',
-      messageText: "Hello world!: unable to create directory '/run/user/1000/dconf': Permission denied. dconf will not work properly.",
-      attachedFile: {
-        name: "Attachments",
-        files: [
-          { name: "file1.jpg", url: "https://storage.googleapis.com/zenn-user-upload/avatar/58e5499c30.jpeg" },
-          { name: "file2.png", url: "https://static.zenn.studio/images/empty/user-content.png" }
-        ],
-        dirs: [
-          {
-            name: "Attachments2",
-            files: [
-              { name: "shoro.pdf", url: "https://www.jstage.jst.go.jp/article/jila/81/5/81_577/_pdf" },
-              { name: "file2.png", url: "https://static.zenn.studio/images/empty/user-content.png" }
-            ],
-            dirs: [],
-          }
-        ],
-      },
-    },
-  ];
+  const toggleDrawer = () => { setOpen(!open); };
+  setCells(await get_cells('http://localhost/cells'));
 
   return (
     <ThemeProvider theme={defaultTheme}>
@@ -209,7 +233,7 @@ export default function Dashboard() {
           <Toolbar />
           <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
             <Grid container spacing={3}>
-              <MessageGrid slack_messages={slack_messages} />
+              <CellsGrid cells={cells} />
             </Grid>
           </Container>
         </Box>

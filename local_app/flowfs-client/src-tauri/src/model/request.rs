@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use mongodb::bson::oid::ObjectId;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CreateUserReq {
