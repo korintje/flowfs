@@ -8,6 +8,7 @@ const R_SIDEBAR_W: u32 = 48;
 const NAVBAR_H: u32 = 16;
 
 mod svg_icon;
+mod tree;
 
 fn main() {
     // Init logger
@@ -93,11 +94,16 @@ fn Cell() -> Element {
             div { class: "text-gray-400",
                 "2024/05/25 23:41"
             }
-            span { class: "w-full h-full flex justify-center items-center",
-                "集りはゴーシュのきょろきょろ狸みちの扉をおろし音だです。そこでどっかり生ましましって小太鼓でまし。それどころたますんましはでしまたおばあさんの愉快目のうちがもまるで変だろまして、われわれじゃ小節に叫ぶがっ方たた。"
-            }
-            div {
-                Fileprops {}
+            div { class: "flex divide-x",
+                span { class: "w-full h-full flex justify-center items-center mr-4",
+                    "集りはゴーシュのきょろきょろ狸みちの扉をおろし音だです。そこでどっかり生ましましって小太鼓でまし。それどころたますんましはでしまたおばあさんの愉快目のうちがもまるで変だろまして、われわれじゃ小節に叫ぶがっ方たた。"
+                }
+                // div {
+                //     Fileprops {}
+                // }
+                div { class: "min-w-60",
+                    tree::tree {}
+                }
             }
         }
     }

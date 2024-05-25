@@ -1,5 +1,5 @@
 [package]
-name = "dioxus-test-2"
+name = "flowfs-web"
 version = "0.1.0"
 authors = ["korintje <t.hosomi1410@gmail.com>"]
 edition = "2021"
