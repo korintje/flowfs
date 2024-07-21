@@ -2,6 +2,7 @@ use std::fs;
 use std::io::{BufReader, Read};
 // use sha2::{Sha256, Digest};
 use serde::Deserialize;
+use crate::model::{Dir};
 
 #[derive(Debug, Deserialize)]
 struct Config {
@@ -43,4 +44,41 @@ pub fn get_db_path() -> String {
   get_config()
     .db_path
     .unwrap_or("flowfs".to_string())
+}
+
+pub fn download_tree(rootdir: Dir) {
+  if rootdir.name == "/" {
+    {
+      std::fs::create_dir("root_dir").unwrap();
+        for fileprop in rootdir.fileprops {
+                li {
+                    a { svg_icon::general_file {} {fileprop.name} }
+                }
+            }
+            for subdir in rootdir.dirs {
+                li {
+                    FileTree { rootdir: subdir }
+                }
+            }
+
+    }
+  } else {
+    {
+        details { open: "false", 
+            summary { svg_icon::directory {} {rootdir.name} }
+            ul {
+                for fileprop in rootdir.fileprops {
+                    li {
+                        a { svg_icon::general_file {} {fileprop.name} }
+                    }
+                }
+                for subdir in rootdir.dirs {
+                    li {
+                        FileTree { rootdir: subdir }
+                    }
+                }
+            }
+        }
+    }
+  }
 }

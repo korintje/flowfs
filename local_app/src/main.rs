@@ -268,8 +268,21 @@ fn Cell(cell: CellExtracted, force_reload: Signal<i32>) -> Element {
                     }
                     div { class: "flex flex-row mt-4",
                         // DotsMenu {cell_id: cell.cell_id, force_reload}
-                        button {class: "ml-4", svg_icon::download{}}
-                        button {class: "ml-4", svg_icon::reply{}}
+                        button {
+                            class: "ml-4",
+                            onclick: move |evt| {
+                                println!("push download: {evt:?}");
+                                std::fs::create_dir("t").unwrap();
+                            },
+                            svg_icon::download{},
+                        }
+                        button {
+                            class: "ml-4",
+                            onclick: move |evt| {
+                                println!("push reply: {evt:?}");
+                            },
+                            svg_icon::reply{},
+                        }
                         button {
                             class: "ml-4",
                             onclick: move |evt| {
