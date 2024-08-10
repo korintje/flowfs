@@ -272,7 +272,8 @@ fn Cell(cell: CellExtracted, force_reload: Signal<i32>) -> Element {
                             class: "ml-4",
                             onclick: move |evt| {
                                 println!("push download: {evt:?}");
-                                std::fs::create_dir("t").unwrap();
+                                // std::fs::create_dir("t").unwrap();
+                                utils::download_dir();
                             },
                             svg_icon::download{},
                         }
